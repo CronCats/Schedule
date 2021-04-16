@@ -2,12 +2,13 @@
 name = "cron_schedule"
 version = "0.1.0"
 authors = ["Cron Near <hello@cron.near>"]
-repository = "https://github.com/zslayton/cron"
-documentation = "https://docs.rs/cron"
+repository = "https://github.com/Cron-Near/Schedule"
+documentation = "https://docs.rs/cron_schedule"
 readme = "README.md"
 description = "A cron expression parser, adapted for blockchain environments."
 keywords = [ "cron", "schedule", "repeat", "periodic", "time", "blockchain", "near protocol" ]
-license = "MIT OR Apache-2.0"
+homepage = "https://cron.cat"
+license = "MIT"
 edition = "2018"
 
 [lib]
@@ -17,6 +18,3 @@ name = "cron_schedule"
 chrono = "~0.4"
 nom = "~4.1"
 once_cell = "1.5.2"
-
-[dev-dependencies]
-chrono-tz = "0.4"
