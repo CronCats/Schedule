@@ -3,8 +3,8 @@ use chrono::{DateTime, Datelike, NaiveDateTime, Timelike, Utc};
 use crate::ordinal::Ordinal;
 use crate::time_unit::{DaysOfMonth, Hours, Minutes, Months, Seconds, TimeUnitField};
 
-const NANOS: i64 = 1_000_000;
-const SECONDS: i64 = 1_000;
+const NANOS: u64 = 1_000_000;
+const SECONDS: u64 = 1_000;
 
 pub struct NextAfterQuery {
     initial_datetime: DateTime<Utc>,
@@ -16,12 +16,12 @@ pub struct NextAfterQuery {
 }
 
 impl NextAfterQuery {
-    pub fn from(after: &i64) -> NextAfterQuery {
+    pub fn from(after: &u64) -> NextAfterQuery {
         let rem = after.clone() % NANOS;
         let secs = ((after.clone() - rem) / (NANOS * SECONDS)) + 1;
         let initial_datetime = DateTime
             ::from_utc(
-                NaiveDateTime::from_timestamp(secs, 0), 
+                NaiveDateTime::from_timestamp(secs as i64, 0), 
                 Utc
             );
         NextAfterQuery {

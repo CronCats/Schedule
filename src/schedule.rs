@@ -31,7 +31,7 @@ impl Schedule {
         }
     }
 
-    pub fn next_after(&self, after: &i64) -> Option<i64> {
+    pub fn next_after(&self, after: &u64) -> Option<u64> {
         let mut query = NextAfterQuery::from(after);
         for year in self
             .fields
@@ -86,7 +86,7 @@ impl Schedule {
                                 // NOTE: this is nanoseconds being passed in as seconds!
                                 let rem = after.clone() % 1_000_000;
                                 let secs = ((after.clone() - rem) / 1_000_000_000) + 1;
-                                let timezone = Utc.timestamp(secs, 0).timezone();
+                                let timezone = Utc.timestamp(secs as i64, 0).timezone();
                                 let candidate = if let Some(candidate) = timezone
                                     .ymd(year as i32, month, day_of_month)
                                     .and_hms_opt(hour, minute, second)
@@ -103,7 +103,7 @@ impl Schedule {
                                 {
                                     continue 'day_loop;
                                 }
-                                return Some(candidate.timestamp_nanos());
+                                return Some(candidate.timestamp_nanos() as u64);
                             }
                             query.reset_minute();
                         } // End of minutes range
@@ -122,11 +122,11 @@ impl Schedule {
     /// Provides an iterator which will return each DateTime that matches the schedule starting with
     /// the current time if applicable.
     pub fn upcoming(&self) -> ScheduleIterator {
-        self.after(&Utc::now().naive_utc().timestamp_nanos())
+        self.after(&(Utc::now().naive_utc().timestamp_nanos() as u64))
     }
 
     /// Like the `upcoming` method, but allows you to specify a start time other than the present.
-    pub fn after(&self, after: &i64) -> ScheduleIterator {
+    pub fn after(&self, after: &u64) -> ScheduleIterator {
         ScheduleIterator::new(self, after)
     }
 
@@ -238,11 +238,11 @@ impl ScheduleFields {
 pub struct ScheduleIterator<'a> {
     is_done: bool,
     schedule: &'a Schedule,
-    previous_datetime: i64,
+    previous_datetime: u64,
 }
 
 impl<'a> ScheduleIterator<'a> {
-    fn new(schedule: &'a Schedule, starting_datetime: &i64) -> ScheduleIterator<'a> {
+    fn new(schedule: &'a Schedule, starting_datetime: &u64) -> ScheduleIterator<'a> {
         ScheduleIterator {
             is_done: false,
             schedule,
@@ -252,9 +252,9 @@ impl<'a> ScheduleIterator<'a> {
 }
 
 impl<'a> Iterator for ScheduleIterator<'a> {
-    type Item = i64;
+    type Item = u64;
 
-    fn next(&mut self) -> Option<i64> {
+    fn next(&mut self) -> Option<u64> {
         if self.is_done {
             return None;
         }
@@ -294,7 +294,7 @@ mod test {
     fn test_next_duration() {
         let expression = "0 5,13,40-42 17 1 Jan *";
         let schedule = Schedule::from_str(expression).unwrap();
-        let next = schedule.next_after(&Utc::now().timestamp_nanos());
+        let next = schedule.next_after(&(Utc::now().timestamp_nanos() as u64));
         println!("NEXT DURATION------- for {} {:?}", expression, next);
         assert!(next.is_some());
     }
@@ -303,7 +303,7 @@ mod test {
     fn test_next_after() {
         let expression = "0 5,13,40-42 17 1 Jan *";
         let schedule = Schedule::from_str(expression).unwrap();
-        let next = schedule.next_after(&Utc::now().timestamp_nanos());
+        let next = schedule.next_after(&(Utc::now().timestamp_nanos() as u64));
         println!("NEXT AFTER for {} {:?}", expression, next);
         assert!(next.is_some());
     }

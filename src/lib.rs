@@ -35,10 +35,6 @@
 //! -> 2018-08-15 09:30:00 UTC
 //! */
 //! ```
-
-#[cfg(test)]
-extern crate chrono_tz;
-
 pub mod error;
 mod schedule;
 mod time_unit;
