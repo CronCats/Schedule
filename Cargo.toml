@@ -1,6 +1,6 @@
 [package]
 name = "cron_schedule"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Cron Near <hello@cron.near>"]
 repository = "https://github.com/Cron-Near/Schedule"
 documentation = "https://docs.rs/cron_schedule"
@@ -15,6 +15,6 @@ edition = "2018"
 name = "cron_schedule"
 
 [dependencies]
-chrono = "0.4.19"
+chrono = "=0.4.19"
 nom = "~4.1"
 once_cell = "1.5.2"
