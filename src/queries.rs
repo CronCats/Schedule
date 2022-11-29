@@ -17,8 +17,8 @@ pub struct NextAfterQuery {
 
 impl NextAfterQuery {
     pub fn from(after: &u64) -> NextAfterQuery {
-        let rem = after.clone() % NANOS;
-        let secs = ((after.clone() - rem) / (NANOS * SECONDS)) + 1;
+        let rem = *after % NANOS;
+        let secs = ((*after - rem) / (NANOS * SECONDS)) + 1;
         let initial_datetime = DateTime::from_utc(
             NaiveDateTime::from_timestamp_opt(secs as i64, 0).unwrap(),
             Utc,

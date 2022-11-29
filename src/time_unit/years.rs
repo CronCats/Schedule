@@ -3,7 +3,7 @@ use crate::time_unit::TimeUnitField;
 use std::borrow::Cow;
 use once_cell::sync::Lazy;
 
-static ALL: Lazy<OrdinalSet> = Lazy::new(|| { Years::supported_ordinals() });
+static ALL: Lazy<OrdinalSet> = Lazy::new(Years::supported_ordinals);
 
 #[derive(Clone, Debug, Eq)]
 pub struct Years{
@@ -30,7 +30,7 @@ impl TimeUnitField for Years {
     }
     fn ordinals(&self) -> &OrdinalSet {
         match &self.ordinals {
-            Some(ordinal_set) => &ordinal_set,
+            Some(ordinal_set) => ordinal_set,
             None => &ALL
         }
     }

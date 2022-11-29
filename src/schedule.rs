@@ -84,8 +84,8 @@ impl Schedule {
 
                             for second in self.fields.seconds.ordinals().range(second_range).cloned() {
                                 // NOTE: this is nanoseconds being passed in as seconds!
-                                let rem = after.clone() % 1_000_000;
-                                let secs = ((after.clone() - rem) / 1_000_000_000) + 1;
+                                let rem = *after % 1_000_000;
+                                let secs = ((*after - rem) / 1_000_000_000) + 1;
                                 let timezone = Utc.timestamp_opt(secs as i64, 0).unwrap().timezone();
                                 let candidate = if let Some(candidate) = timezone
                                     .with_ymd_and_hms(year as i32, month, day_of_month, hour, minute, second).single()
@@ -245,7 +245,7 @@ impl<'a> ScheduleIterator<'a> {
         ScheduleIterator {
             is_done: false,
             schedule,
-            previous_datetime: starting_datetime.clone(),
+            previous_datetime: *starting_datetime,
         }
     }
 }
@@ -258,7 +258,7 @@ impl<'a> Iterator for ScheduleIterator<'a> {
             return None;
         }
         if let Some(next_datetime) = self.schedule.next_after(&self.previous_datetime) {
-            self.previous_datetime = next_datetime.clone();
+            self.previous_datetime = next_datetime;
             Some(next_datetime)
         } else {
             self.is_done = true;
