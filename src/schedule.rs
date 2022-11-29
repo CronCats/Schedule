@@ -86,10 +86,9 @@ impl Schedule {
                                 // NOTE: this is nanoseconds being passed in as seconds!
                                 let rem = after.clone() % 1_000_000;
                                 let secs = ((after.clone() - rem) / 1_000_000_000) + 1;
-                                let timezone = Utc.timestamp(secs as i64, 0).timezone();
+                                let timezone = Utc.timestamp_opt(secs as i64, 0).unwrap().timezone();
                                 let candidate = if let Some(candidate) = timezone
-                                    .ymd(year as i32, month, day_of_month)
-                                    .and_hms_opt(hour, minute, second)
+                                    .with_ymd_and_hms(year as i32, month, day_of_month, hour, minute, second).single()
                                 {
                                     candidate
                                 } else {

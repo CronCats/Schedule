@@ -95,77 +95,143 @@ mod tests {
     fn test_yearly() {
         let expression = "@yearly";
         let schedule = Schedule::from_str(expression).expect("Failed to parse @yearly.");
-        let starting_date = Utc.ymd(2017, 6, 15).and_hms(14, 29, 36).timestamp_nanos() as u64;
+        let starting_date = Utc
+            .with_ymd_and_hms(2017, 6, 15, 14, 29, 36)
+            .unwrap()
+            .timestamp_nanos() as u64;
         let mut events = schedule.after(&starting_date);
-        assert_eq!(Utc.ymd(2018, 1, 1).and_hms(0, 0, 0).timestamp_nanos() as u64, events.next().unwrap());
-        assert_eq!(Utc.ymd(2019, 1, 1).and_hms(0, 0, 0).timestamp_nanos() as u64, events.next().unwrap());
-        assert_eq!(Utc.ymd(2020, 1, 1).and_hms(0, 0, 0).timestamp_nanos() as u64, events.next().unwrap());
+        assert_eq!(
+            Utc.with_ymd_and_hms(2018, 1, 1, 0, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
+            events.next().unwrap()
+        );
+        assert_eq!(
+            Utc.with_ymd_and_hms(2019, 1, 1, 0, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
+            events.next().unwrap()
+        );
+        assert_eq!(
+            Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
+            events.next().unwrap()
+        );
     }
 
     #[test]
     fn test_monthly() {
         let expression = "@monthly";
         let schedule = Schedule::from_str(expression).expect("Failed to parse @monthly.");
-        let starting_date = Utc.ymd(2017, 10, 15).and_hms(14, 29, 36).timestamp_nanos() as u64;
+        let starting_date = Utc
+            .with_ymd_and_hms(2017, 10, 15, 14, 29, 36)
+            .unwrap()
+            .timestamp_nanos() as u64;
         let mut events = schedule.after(&starting_date);
         assert_eq!(
-            Utc.ymd(2017, 11, 1).and_hms(0, 0, 0).timestamp_nanos() as u64,
+            Utc.with_ymd_and_hms(2017, 11, 1, 0, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
             events.next().unwrap()
         );
         assert_eq!(
-            Utc.ymd(2017, 12, 1).and_hms(0, 0, 0).timestamp_nanos() as u64,
+            Utc.with_ymd_and_hms(2017, 12, 1, 0, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
             events.next().unwrap()
         );
-        assert_eq!(Utc.ymd(2018, 1, 1).and_hms(0, 0, 0).timestamp_nanos() as u64, events.next().unwrap());
+        assert_eq!(
+            Utc.with_ymd_and_hms(2018, 1, 1, 0, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
+            events.next().unwrap()
+        );
     }
 
     #[test]
     fn test_weekly() {
         let expression = "@weekly";
         let schedule = Schedule::from_str(expression).expect("Failed to parse @weekly.");
-        let starting_date = Utc.ymd(2016, 12, 23).and_hms(14, 29, 36).timestamp_nanos() as u64;
+        let starting_date = Utc
+            .with_ymd_and_hms(2016, 12, 23, 14, 29, 36)
+            .unwrap()
+            .timestamp_nanos() as u64;
         let mut events = schedule.after(&starting_date);
         assert_eq!(
-            Utc.ymd(2016, 12, 25).and_hms(0, 0, 0).timestamp_nanos() as u64,
+            Utc.with_ymd_and_hms(2016, 12, 25, 0, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
             events.next().unwrap()
         );
-        assert_eq!(Utc.ymd(2017, 1, 1).and_hms(0, 0, 0).timestamp_nanos() as u64, events.next().unwrap());
-        assert_eq!(Utc.ymd(2017, 1, 8).and_hms(0, 0, 0).timestamp_nanos() as u64, events.next().unwrap());
+        assert_eq!(
+            Utc.with_ymd_and_hms(2017, 1, 1, 0, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
+            events.next().unwrap()
+        );
+        assert_eq!(
+            Utc.with_ymd_and_hms(2017, 1, 8, 0, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
+            events.next().unwrap()
+        );
     }
 
     #[test]
     fn test_daily() {
         let expression = "@daily";
         let schedule = Schedule::from_str(expression).expect("Failed to parse @daily.");
-        let starting_date = Utc.ymd(2016, 12, 29).and_hms(14, 29, 36).timestamp_nanos() as u64;
+        let starting_date = Utc
+            .with_ymd_and_hms(2016, 12, 29, 14, 29, 36)
+            .unwrap()
+            .timestamp_nanos() as u64;
         let mut events = schedule.after(&starting_date);
         assert_eq!(
-            Utc.ymd(2016, 12, 30).and_hms(0, 0, 0).timestamp_nanos() as u64,
+            Utc.with_ymd_and_hms(2016, 12, 30, 0, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
             events.next().unwrap()
         );
         assert_eq!(
-            Utc.ymd(2016, 12, 31).and_hms(0, 0, 0).timestamp_nanos() as u64,
+            Utc.with_ymd_and_hms(2016, 12, 31, 0, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
             events.next().unwrap()
         );
-        assert_eq!(Utc.ymd(2017, 1, 1).and_hms(0, 0, 0).timestamp_nanos() as u64, events.next().unwrap());
+        assert_eq!(
+            Utc.with_ymd_and_hms(2017, 1, 1, 0, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
+            events.next().unwrap()
+        );
     }
 
     #[test]
     fn test_hourly() {
         let expression = "@hourly";
         let schedule = Schedule::from_str(expression).expect("Failed to parse @hourly.");
-        let starting_date = Utc.ymd(2017, 2, 25).and_hms(22, 29, 36).timestamp_nanos() as u64;
+        let starting_date = Utc
+            .with_ymd_and_hms(2017, 2, 25, 22, 29, 36)
+            .unwrap()
+            .timestamp_nanos() as u64;
         let mut events = schedule.after(&starting_date);
         assert_eq!(
-            Utc.ymd(2017, 2, 25).and_hms(23, 0, 0).timestamp_nanos() as u64,
+            Utc.with_ymd_and_hms(2017, 2, 25, 23, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
             events.next().unwrap()
         );
         assert_eq!(
-            Utc.ymd(2017, 2, 26).and_hms(0, 0, 0).timestamp_nanos() as u64,
+            Utc.with_ymd_and_hms(2017, 2, 26, 0, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
             events.next().unwrap()
         );
         assert_eq!(
-            Utc.ymd(2017, 2, 26).and_hms(1, 0, 0).timestamp_nanos() as u64,
+            Utc.with_ymd_and_hms(2017, 2, 26, 1, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
             events.next().unwrap()
         );
     }
@@ -174,39 +240,66 @@ mod tests {
     fn test_step_schedule() {
         let expression = "0/20 0/5 0 1 1 * *";
         let schedule = Schedule::from_str(expression).expect("Failed to parse expression.");
-        let starting_date = Utc.ymd(2017, 6, 15).and_hms(14, 29, 36).timestamp_nanos() as u64;
+        let starting_date = Utc
+            .with_ymd_and_hms(2017, 6, 15, 14, 29, 36)
+            .unwrap()
+            .timestamp_nanos() as u64;
         let mut events = schedule.after(&starting_date);
 
-        assert_eq!(Utc.ymd(2018, 1, 1).and_hms(0, 0, 0).timestamp_nanos() as u64, events.next().unwrap());
         assert_eq!(
-            Utc.ymd(2018, 1, 1).and_hms(0, 0, 20).timestamp_nanos() as u64,
+            Utc.with_ymd_and_hms(2018, 1, 1, 0, 0, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
             events.next().unwrap()
         );
         assert_eq!(
-            Utc.ymd(2018, 1, 1).and_hms(0, 0, 40).timestamp_nanos() as u64,
+            Utc.with_ymd_and_hms(2018, 1, 1, 0, 0, 20)
+                .unwrap()
+                .timestamp_nanos() as u64,
+            events.next().unwrap()
+        );
+        assert_eq!(
+            Utc.with_ymd_and_hms(2018, 1, 1, 0, 0, 40)
+                .unwrap()
+                .timestamp_nanos() as u64,
             events.next().unwrap()
         );
 
-        assert_eq!(Utc.ymd(2018, 1, 1).and_hms(0, 5, 0).timestamp_nanos() as u64, events.next().unwrap());
         assert_eq!(
-            Utc.ymd(2018, 1, 1).and_hms(0, 5, 20).timestamp_nanos() as u64,
+            Utc.with_ymd_and_hms(2018, 1, 1, 0, 5, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
             events.next().unwrap()
         );
         assert_eq!(
-            Utc.ymd(2018, 1, 1).and_hms(0, 5, 40).timestamp_nanos() as u64,
+            Utc.with_ymd_and_hms(2018, 1, 1, 0, 5, 20)
+                .unwrap()
+                .timestamp_nanos() as u64,
+            events.next().unwrap()
+        );
+        assert_eq!(
+            Utc.with_ymd_and_hms(2018, 1, 1, 0, 5, 40)
+                .unwrap()
+                .timestamp_nanos() as u64,
             events.next().unwrap()
         );
 
         assert_eq!(
-            Utc.ymd(2018, 1, 1).and_hms(0, 10, 0).timestamp_nanos() as u64,
+            Utc.with_ymd_and_hms(2018, 1, 1, 0, 10, 0)
+                .unwrap()
+                .timestamp_nanos() as u64,
             events.next().unwrap()
         );
         assert_eq!(
-            Utc.ymd(2018, 1, 1).and_hms(0, 10, 20).timestamp_nanos() as u64,
+            Utc.with_ymd_and_hms(2018, 1, 1, 0, 10, 20)
+                .unwrap()
+                .timestamp_nanos() as u64,
             events.next().unwrap()
         );
         assert_eq!(
-            Utc.ymd(2018, 1, 1).and_hms(0, 10, 40).timestamp_nanos() as u64,
+            Utc.with_ymd_and_hms(2018, 1, 1, 0, 10, 40)
+                .unwrap()
+                .timestamp_nanos() as u64,
             events.next().unwrap()
         );
     }
@@ -292,11 +385,19 @@ mod tests {
     #[test]
     fn test_first_ordinals_not_in_set_1() {
         let schedule = "0 0/10 * * * * *".parse::<Schedule>().unwrap();
-        let start_time_1 = NaiveDate::from_ymd(2017, 10, 24).and_hms(0, 0, 59).timestamp_nanos() as u64;
+        let start_time_1 = NaiveDate::from_ymd_opt(2017, 10, 24)
+            .unwrap()
+            .and_hms_opt(0, 0, 59)
+            .unwrap()
+            .timestamp_nanos() as u64;
         let start_time_1 = &start_time_1;
         let next_time_1 = schedule.after(&start_time_1).next().unwrap();
 
-        let start_time_2 = NaiveDate::from_ymd(2017, 10, 24).and_hms(0, 1, 0).timestamp_nanos() as u64;
+        let start_time_2 = NaiveDate::from_ymd_opt(2017, 10, 24)
+            .unwrap()
+            .and_hms_opt(0, 1, 0)
+            .unwrap()
+            .timestamp_nanos() as u64;
         let start_time_2 = &start_time_2;
         let next_time_2 = schedule.after(&start_time_2).next().unwrap();
         assert_eq!(next_time_1, next_time_2);
@@ -305,7 +406,11 @@ mod tests {
     #[test]
     fn test_first_ordinals_not_in_set_2() {
         let schedule_1 = "00 00 23 * * * *".parse::<Schedule>().unwrap();
-        let start_time = NaiveDate::from_ymd(2018, 11, 15).and_hms(22, 30, 00).timestamp_nanos() as u64;
+        let start_time = NaiveDate::from_ymd_opt(2018, 11, 15)
+            .unwrap()
+            .and_hms_opt(22, 30, 00)
+            .unwrap()
+            .timestamp_nanos() as u64;
         let start_time = &start_time;
         let next_time_1 = schedule_1.after(&start_time).next().unwrap();
 

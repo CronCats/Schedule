@@ -19,11 +19,10 @@ impl NextAfterQuery {
     pub fn from(after: &u64) -> NextAfterQuery {
         let rem = after.clone() % NANOS;
         let secs = ((after.clone() - rem) / (NANOS * SECONDS)) + 1;
-        let initial_datetime = DateTime
-            ::from_utc(
-                NaiveDateTime::from_timestamp(secs as i64, 0), 
-                Utc
-            );
+        let initial_datetime = DateTime::from_utc(
+            NaiveDateTime::from_timestamp_opt(secs as i64, 0).unwrap(),
+            Utc,
+        );
         NextAfterQuery {
             initial_datetime,
             first_month: true,
