@@ -36,12 +36,12 @@
 //! */
 //! ```
 pub mod error;
-mod schedule;
-mod time_unit;
 mod ordinal;
-mod specifier;
-mod queries;
 mod parsing;
+mod queries;
+mod schedule;
+mod specifier;
+mod time_unit;
 
 pub use crate::schedule::Schedule;
 pub use crate::time_unit::TimeUnitSpec;

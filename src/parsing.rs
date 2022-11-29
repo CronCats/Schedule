@@ -1,12 +1,12 @@
 use nom::{types::CompleteStr as Input, *};
-use std::iter::{Iterator};
+use std::iter::Iterator;
 use std::str::{self, FromStr};
 
 use crate::error::{Error, ErrorKind};
-use crate::schedule::{ScheduleFields, Schedule};
+use crate::ordinal::*;
+use crate::schedule::{Schedule, ScheduleFields};
 use crate::specifier::*;
 use crate::time_unit::*;
-use crate::ordinal::*;
 
 impl FromStr for Schedule {
     type Err = Error;
@@ -75,10 +75,12 @@ where
     T: TimeUnitField,
 {
     fn from_field(field: Field) -> Result<T, Error> {
-        if field.specifiers.len() == 1 && 
-            field.specifiers.get(0).unwrap() == &RootSpecifier::from(Specifier::All) 
-            { return Ok(T::all()); }
-        let mut ordinals = OrdinalSet::new(); 
+        if field.specifiers.len() == 1
+            && field.specifiers.get(0).unwrap() == &RootSpecifier::from(Specifier::All)
+        {
+            return Ok(T::all());
+        }
+        let mut ordinals = OrdinalSet::new();
         for specifier in field.specifiers {
             let specifier_ordinals: OrdinalSet = T::ordinals_from_root_specifier(&specifier)?;
             for ordinal in specifier_ordinals {

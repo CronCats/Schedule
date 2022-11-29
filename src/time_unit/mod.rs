@@ -211,23 +211,23 @@ where
     fn inclusive_min() -> Ordinal;
     fn inclusive_max() -> Ordinal;
     fn ordinals(&self) -> &OrdinalSet;
-    
+
     fn from_ordinal(ordinal: Ordinal) -> Self {
         Self::from_ordinal_set(iter::once(ordinal).collect())
     }
-    
+
     fn supported_ordinals() -> OrdinalSet {
         (Self::inclusive_min()..Self::inclusive_max() + 1).collect()
-    }    
-    
+    }
+
     fn all() -> Self {
         Self::from_optional_ordinal_set(None)
     }
-    
+
     fn from_ordinal_set(ordinal_set: OrdinalSet) -> Self {
         Self::from_optional_ordinal_set(Some(ordinal_set))
     }
-    
+
     fn ordinal_from_name(name: &str) -> Result<Ordinal, Error> {
         Err(ErrorKind::Expression(format!(
             "The '{}' field does not support using names. '{}' \
