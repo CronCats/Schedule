@@ -1,4 +1,11 @@
-use nom::{types::CompleteStr as Input, *};
+use nom::character::complete::{alpha0, alpha1, digit0, digit1};
+use nom::character::is_space;
+use nom::character::streaming::multispace0;
+use nom::{
+    alt, call, complete, do_parse, eof, error_position, map, map_res, named, opt, preceded, tag,
+    take_while,
+};
+use nom::{separated_list0, separated_list1};
 use std::iter::Iterator;
 use std::str::{self, FromStr};
 
@@ -8,10 +15,25 @@ use crate::schedule::{Schedule, ScheduleFields};
 use crate::specifier::*;
 use crate::time_unit::*;
 
+/// A combinator that takes a parser `inner` and produces a parser that also consumes both leading and
+/// trailing whitespace, returning the output of `inner`.
+fn ws<'a, F, O, E: nom::error::ParseError<&'a str>>(
+    inner: F,
+) -> impl FnMut(&'a str) -> nom::IResult<&'a str, O, E>
+where
+    F: nom::Parser<&'a str, O, E>,
+{
+    nom::sequence::delimited(
+        nom::character::complete::multispace0,
+        inner,
+        nom::character::complete::multispace0,
+    )
+}
+
 impl FromStr for Schedule {
     type Err = Error;
     fn from_str(expression: &str) -> Result<Self, Self::Err> {
-        match schedule(Input(expression)) {
+        match schedule(expression) {
             Ok((_, schedule_fields)) => {
                 Ok(Schedule::new(String::from(expression), schedule_fields))
             } // Extract from nom tuple
@@ -92,64 +114,79 @@ where
 }
 
 named!(
-    ordinal<Input, u32>,
-    map_res!(ws!(digit), |x: Input| x.0.parse())
+    ordinal<&str, u32>,
+    map_res!(ws(digit1), |x: &str| x.parse())
 );
 
 named!(
-    name<Input, String>,
-    map!(ws!(alpha), |x| x.0.to_owned())
+    name<&str, String>,
+    map!(ws(alpha1), |x| x.to_owned())
 );
 
 named!(
-    point<Input, Specifier>,
+    point<&str, Specifier>,
     do_parse!(o: ordinal >> (Specifier::Point(o)))
 );
 
 named!(
-    named_point<Input, RootSpecifier>,
+    named_point<&str, RootSpecifier>,
     do_parse!(n: name >> (RootSpecifier::NamedPoint(n)))
 );
 
+use nom::{number::streaming::be_u8, take};
+
 named!(
-    period<Input, RootSpecifier>,
+    tag_length_value<(u8, &[u8])>,
+    do_parse!(
+      tag!( &[ 42u8 ][..] ) >>
+      length: be_u8         >>
+      bytes:  take!(length) >>
+      (length, bytes)
+    )
+);
+
+named!(
+    period<&str, RootSpecifier>,
     complete!(do_parse!(
-        start: specifier >> tag!("/") >> step: ordinal >> (RootSpecifier::Period(start, step))
+        start: specifier >>
+        tag!("/") >>
+        step: ordinal >>
+        (RootSpecifier::Period(start, step))
     ))
 );
 
 named!(
-    period_with_any<Input, RootSpecifier>,
+    period_with_any<&str, RootSpecifier>,
     complete!(do_parse!(
         start: specifier_with_any >> tag!("/") >> step: ordinal >> (RootSpecifier::Period(start, step))
     ))
 );
 
 named!(
-    range<Input, Specifier>,
+    range<&str, Specifier>,
     complete!(do_parse!(
         start: ordinal >> tag!("-") >> end: ordinal >> (Specifier::Range(start, end))
     ))
 );
 
 named!(
-    named_range<Input, Specifier>,
+    named_range<&str, Specifier>,
     complete!(do_parse!(
         start: name >> tag!("-") >> end: name >> (Specifier::NamedRange(start, end))
     ))
 );
 
-named!(all<Input, Specifier>, do_parse!(tag!("*") >> (Specifier::All)));
+named!(all<&str, Specifier>, do_parse!(tag!("*") >> (Specifier::All)));
 
-named!(any<Input, Specifier>, do_parse!(tag!("?") >> (Specifier::All)));
+named!(any<&str, Specifier>, do_parse!(tag!("?") >> (Specifier::All)));
 
 named!(
-    specifier<Input, Specifier>,
+    specifier<&str, Specifier>,
     alt!(all | range | point | named_range)
 );
 
 named!(
-    specifier_with_any<Input, Specifier>,
+    specifier_with_any<&str, Specifier>,
     alt!(
         any |
         specifier
@@ -157,45 +194,44 @@ named!(
 );
 
 named!(
-    root_specifier<Input, RootSpecifier>,
+    root_specifier<&str, RootSpecifier>,
     alt!(period | map!(specifier, RootSpecifier::from) | named_point)
 );
 
 named!(
-    root_specifier_with_any<Input, RootSpecifier>,
+    root_specifier_with_any<&str, RootSpecifier>,
     alt!(period_with_any | map!(specifier_with_any, RootSpecifier::from) | named_point)
 );
 
 named!(
-    root_specifier_list<Input, Vec<RootSpecifier>>,
-    ws!(alt!(
-        do_parse!(list: separated_nonempty_list!(tag!(","), root_specifier) >> (list))
-            | do_parse!(spec: root_specifier >> (vec![spec]))
-    ))
-);
-
-named!(
-    root_specifier_list_with_any<Input, Vec<RootSpecifier>>,
-    ws!(alt!(
-        do_parse!(list: separated_nonempty_list!(tag!(","), root_specifier_with_any) >> (list))
-            | do_parse!(spec: root_specifier_with_any >> (vec![spec]))
-    ))
-);
-
-named!(
-    field<Input, Field>,
-    do_parse!(specifiers: root_specifier_list >> (Field { specifiers }))
-);
-
-named!(
-    field_with_any<Input, Field>,
+    root_specifier_list<&str, Vec<RootSpecifier>>,
     alt!(
-        do_parse!(specifiers: root_specifier_list_with_any >> (Field { specifiers }))
+        do_parse!(list: separated_list1!(nom::bytes::complete::tag(","), root_specifier) >> (list))
+            | do_parse!(spec: root_specifier >> (vec![spec]))
     )
 );
 
 named!(
-    shorthand_yearly<Input, ScheduleFields>,
+    root_specifier_list_with_any<&str, Vec<RootSpecifier>>,
+    alt!(
+        do_parse!(list: separated_list1!(nom::bytes::complete::tag(","), root_specifier_with_any) >> (list))
+            | do_parse!(spec: root_specifier_with_any >> (vec![spec]))
+    )
+);
+
+named!(
+    field<&str, Field>,
+    do_parse!(specifiers: root_specifier_list >> (Field { specifiers }))
+);
+named!(
+    field_with_any<&str, Field>,
+    alt!(
+        do_parse!(specifiers: root_specifier_list_with_any >>(Field { specifiers }))
+    )
+);
+
+named!(
+    shorthand_yearly<&str, ScheduleFields>,
     do_parse!(
         tag!("@yearly")
             >> (ScheduleFields::new(
@@ -211,7 +247,7 @@ named!(
 );
 
 named!(
-    shorthand_monthly<Input, ScheduleFields>,
+    shorthand_monthly<&str, ScheduleFields>,
     do_parse!(
         tag!("@monthly")
             >> (ScheduleFields::new(
@@ -227,7 +263,7 @@ named!(
 );
 
 named!(
-    shorthand_weekly<Input, ScheduleFields>,
+    shorthand_weekly<&str, ScheduleFields>,
     do_parse!(
         tag!("@weekly")
             >> (ScheduleFields::new(
@@ -243,7 +279,7 @@ named!(
 );
 
 named!(
-    shorthand_daily<Input, ScheduleFields>,
+    shorthand_daily<&str, ScheduleFields>,
     do_parse!(
         tag!("@daily")
             >> (ScheduleFields::new(
@@ -259,7 +295,7 @@ named!(
 );
 
 named!(
-    shorthand_hourly<Input, ScheduleFields>,
+    shorthand_hourly<&str, ScheduleFields>,
     do_parse!(
         tag!("@hourly")
             >> (ScheduleFields::new(
@@ -275,7 +311,7 @@ named!(
 );
 
 named!(
-    shorthand<Input, ScheduleFields>,
+    shorthand<&str, ScheduleFields>,
     alt!(
         shorthand_yearly
             | shorthand_monthly
@@ -286,7 +322,7 @@ named!(
 );
 
 named!(
-    longhand<Input, ScheduleFields>,
+    longhand<&str, ScheduleFields>,
     map_res!(
         complete!(do_parse!(
             seconds: field >>
@@ -316,322 +352,525 @@ named!(
     )
 );
 
-named!(schedule<Input, ScheduleFields>, alt!(shorthand | longhand));
+named!(schedule<&str, ScheduleFields>, alt!(shorthand | longhand));
 #[cfg(test)]
 mod test {
+
     use super::*;
 
     #[test]
     fn test_nom_valid_number() {
-        let expression = "1997";
-        point(Input(expression)).unwrap();
+        let expression = "  1997\n\n\t";
+        let (input, s) = point(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(s, Specifier::Point(1997));
     }
 
     #[test]
     fn test_nom_invalid_point() {
         let expression = "a";
-        assert!(point(Input(expression)).is_err());
+        assert!(point(expression).is_err());
     }
 
     #[test]
     fn test_nom_valid_named_point() {
         let expression = "WED";
-        named_point(Input(expression)).unwrap();
+        let (input, s) = named_point(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(s, RootSpecifier::NamedPoint(expression.to_owned()));
     }
 
     #[test]
     fn test_nom_invalid_named_point() {
         let expression = "8";
-        assert!(named_point(Input(expression)).is_err());
+        assert!(named_point(expression).is_err());
     }
 
     #[test]
     fn test_nom_valid_period() {
         let expression = "1/2";
-        period(Input(expression)).unwrap();
+        let (input, s) = period(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(s, RootSpecifier::Period(Specifier::Point(1), 2));
     }
 
     #[test]
     fn test_nom_invalid_period() {
         let expression = "Wed/4";
-        assert!(period(Input(expression)).is_err());
+        assert!(period(expression).is_err());
     }
 
     #[test]
     fn test_nom_valid_number_list() {
-        let expression = "1,2";
-        field(Input(expression)).unwrap();
-        field_with_any(Input(expression)).unwrap();
+        let expression = " \n1 , 2   *\n";
+        let (input, f) = field(expression).unwrap();
+
+        let (input, f1) = field(input).unwrap();
+        println!("{input}, {f1:?}");
+        assert!(input.is_empty());
+        assert_eq!(
+            f,
+            Field {
+                specifiers: vec![
+                    RootSpecifier::Specifier(Specifier::Point(1)),
+                    RootSpecifier::Specifier(Specifier::Point(2)),
+                ],
+            }
+        );
+        assert_eq!(
+            f1,
+            Field {
+                specifiers: vec![RootSpecifier::Specifier(Specifier::Point(3))]
+            }
+        );
+        let (input, f) = field_with_any(expression).unwrap();
+        let (input, f1) = field_with_any(input).unwrap();
+
+        assert!(input.is_empty());
+        assert_eq!(
+            f,
+            Field {
+                specifiers: vec![
+                    RootSpecifier::Specifier(Specifier::Point(1)),
+                    RootSpecifier::Specifier(Specifier::Point(2)),
+                ],
+            }
+        );
+        assert_eq!(
+            f1,
+            Field {
+                specifiers: vec![RootSpecifier::Specifier(Specifier::Point(3))]
+            }
+        );
     }
 
     #[test]
     fn test_nom_invalid_number_list() {
         let expression = ",1,2";
-        assert!(field(Input(expression)).is_err());
-        assert!(field_with_any(Input(expression)).is_err());
+        assert!(field(expression).is_err());
+        assert!(field_with_any(expression).is_err());
     }
 
     #[test]
     fn test_nom_field_with_any_valid_any() {
         let expression = "?";
-        field_with_any(Input(expression)).unwrap();
+        let (input, f) = field_with_any(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(
+            f,
+            Field {
+                specifiers: vec![RootSpecifier::Specifier(Specifier::All)]
+            }
+        );
     }
 
     #[test]
     fn test_nom_field_invalid_any() {
         let expression = "?";
-        assert!(field(Input(expression)).is_err());
+        assert!(field(expression).is_err());
     }
 
     #[test]
     fn test_nom_valid_range_field() {
         let expression = "1-4";
-        range(Input(expression)).unwrap();
+        let (input, f) = range(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(f, Specifier::Range(1, 4))
     }
 
     #[test]
     fn test_nom_valid_period_all() {
         let expression = "*/2";
-        period(Input(expression)).unwrap();
+        let (input, s) = period(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(s, RootSpecifier::Period(Specifier::All, 2))
     }
 
     #[test]
     fn test_nom_valid_period_range() {
         let expression = "10-20/2";
-        period(Input(expression)).unwrap();
+        let (input, s) = period(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(s, RootSpecifier::Period(Specifier::Range(10, 20), 2))
     }
 
     #[test]
     fn test_nom_valid_period_named_range() {
         let expression = "Mon-Thurs/2";
-        period(Input(expression)).unwrap();
+        let (input, s) = period(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(
+            s,
+            RootSpecifier::Period(
+                Specifier::NamedRange("Mon".to_owned(), "Thurs".to_owned()),
+                2
+            )
+        );
 
         let expression = "February-November/2";
-        period(Input(expression)).unwrap();
+        let (input, s) = period(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(
+            s,
+            RootSpecifier::Period(
+                Specifier::NamedRange("February".to_owned(), "November".to_owned()),
+                2
+            )
+        );
     }
 
     #[test]
     fn test_nom_valid_period_point() {
         let expression = "10/2";
-        period(Input(expression)).unwrap();
+        let (input, s) = period(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(s, RootSpecifier::Period(Specifier::Point(10), 2));
     }
 
     #[test]
     fn test_nom_invalid_period_any() {
         let expression = "?/2";
-        assert!(period(Input(expression)).is_err());
+        assert!(period(expression).is_err());
     }
 
     #[test]
     fn test_nom_invalid_period_named_point() {
         let expression = "Tues/2";
-        assert!(period(Input(expression)).is_err());
+        assert!(period(expression).is_err());
 
         let expression = "February/2";
-        assert!(period(Input(expression)).is_err());
+        assert!(period(expression).is_err());
     }
 
     #[test]
     fn test_nom_invalid_period_specifier_range() {
         let expression = "10-12/*";
-        assert!(period(Input(expression)).is_err());
+        assert!(period(expression).is_err());
     }
 
     #[test]
     fn test_nom_valid_period_with_any_all() {
         let expression = "*/2";
-        period_with_any(Input(expression)).unwrap();
+        let (input, s) = period_with_any(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(s, RootSpecifier::Period(Specifier::All, 2));
     }
 
     #[test]
     fn test_nom_valid_period_with_any_range() {
         let expression = "10-20/2";
-        period_with_any(Input(expression)).unwrap();
+        let (input, s) = period_with_any(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(s, RootSpecifier::Period(Specifier::Range(10, 20), 2));
     }
 
     #[test]
     fn test_nom_valid_period_with_any_named_range() {
         let expression = "Mon-Thurs/2";
-        period_with_any(Input(expression)).unwrap();
+        let (input, s) = period_with_any(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(
+            s,
+            RootSpecifier::Period(
+                Specifier::NamedRange("Mon".to_owned(), "Thurs".to_owned()),
+                2
+            )
+        );
 
         let expression = "February-November/2";
-        period_with_any(Input(expression)).unwrap();
+        let (input, s) = period_with_any(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(
+            s,
+            RootSpecifier::Period(
+                Specifier::NamedRange("February".to_owned(), "November".to_owned()),
+                2
+            )
+        );
     }
 
     #[test]
     fn test_nom_valid_period_with_any_point() {
         let expression = "10/2";
-        period_with_any(Input(expression)).unwrap();
+        let (input, s) = period_with_any(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(s, RootSpecifier::Period(Specifier::Point(10), 2))
     }
 
     #[test]
     fn test_nom_valid_period_with_any_any() {
         let expression = "?/2";
-        period_with_any(Input(expression)).unwrap();
+        let (input, s) = period_with_any(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(s, RootSpecifier::Period(Specifier::All, 2))
     }
 
     #[test]
     fn test_nom_invalid_period_with_any_named_point() {
         let expression = "Tues/2";
-        assert!(period_with_any(Input(expression)).is_err());
+        assert!(period_with_any(expression).is_err());
 
         let expression = "February/2";
-        assert!(period_with_any(Input(expression)).is_err());
+        assert!(period_with_any(expression).is_err());
     }
 
     #[test]
     fn test_nom_invalid_period_with_any_specifier_range() {
         let expression = "10-12/*";
-        assert!(period_with_any(Input(expression)).is_err());
+        assert!(period_with_any(expression).is_err());
     }
 
     #[test]
     fn test_nom_invalid_range_field() {
         let expression = "-4";
-        assert!(range(Input(expression)).is_err());
+        assert!(range(expression).is_err());
     }
 
     #[test]
     fn test_nom_valid_named_range_field() {
         let expression = "TUES-THURS";
-        named_range(Input(expression)).unwrap();
+        let (input, s) = named_range(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(
+            s,
+            Specifier::NamedRange("TUES".to_owned(), "THURS".to_owned())
+        );
     }
 
     #[test]
     fn test_nom_invalid_named_range_field() {
         let expression = "3-THURS";
-        assert!(named_range(Input(expression)).is_err());
+        assert!(named_range(expression).is_err());
+    }
+
+    #[test]
+    fn test_valid_shorthands() {
+        let expression = "@hourly";
+        let (input, hourly) = shorthand(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(
+            hourly,
+            ScheduleFields::new(
+                Seconds::from_ordinal(0),
+                Minutes::from_ordinal(0),
+                Hours::all(),
+                DaysOfMonth::all(),
+                Months::all(),
+                DaysOfWeek::all(),
+                Years::all()
+            )
+        );
+
+        let expression = "@daily";
+        let (input, daily) = shorthand(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(
+            daily,
+            ScheduleFields::new(
+                Seconds::from_ordinal(0),
+                Minutes::from_ordinal(0),
+                Hours::from_ordinal(0),
+                DaysOfMonth::all(),
+                Months::all(),
+                DaysOfWeek::all(),
+                Years::all()
+            )
+        );
+
+        let expression = "@weekly";
+        let (input, weekly) = shorthand(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(
+            weekly,
+            ScheduleFields::new(
+                Seconds::from_ordinal(0),
+                Minutes::from_ordinal(0),
+                Hours::from_ordinal(0),
+                DaysOfMonth::all(),
+                Months::all(),
+                DaysOfWeek::from_ordinal(1),
+                Years::all()
+            )
+        );
+
+        let expression = "@monthly";
+        let (input, monthly) = shorthand(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(
+            monthly,
+            ScheduleFields::new(
+                Seconds::from_ordinal(0),
+                Minutes::from_ordinal(0),
+                Hours::from_ordinal(0),
+                DaysOfMonth::from_ordinal(1),
+                Months::all(),
+                DaysOfWeek::all(),
+                Years::all()
+            )
+        );
+
+        let expression = "@yearly";
+        let (input, yearly) = shorthand(expression).unwrap();
+        assert!(input.is_empty());
+        assert_eq!(
+            yearly,
+            ScheduleFields::new(
+                Seconds::from_ordinal(0),
+                Minutes::from_ordinal(0),
+                Hours::from_ordinal(0),
+                DaysOfMonth::from_ordinal(1),
+                Months::from_ordinal(1),
+                DaysOfWeek::all(),
+                Years::all()
+            )
+        );
+    }
+
+    #[test]
+    fn test_invalid_shorthand() {
+        let expression = "@minutely";
+        assert!(shorthand(expression).is_err());
+
+        let expression = "bad_format";
+        assert!(shorthand(expression).is_err());
+    }
+
+    #[test]
+    fn test_valid_longhand() {
+        let expression = "* * * * * *";
+        longhand(expression).unwrap();
     }
 
     #[test]
     fn test_nom_valid_schedule() {
         let expression = "* * * * * *";
-        schedule(Input(expression)).unwrap();
+        schedule(expression).unwrap();
     }
 
     #[test]
     fn test_nom_invalid_schedule() {
         let expression = "* * * *";
-        assert!(schedule(Input(expression)).is_err());
+        assert!(schedule(expression).is_err());
     }
 
     #[test]
     fn test_nom_valid_seconds_list() {
         let expression = "0,20,40 * * * * *";
-        schedule(Input(expression)).unwrap();
+        schedule(expression).unwrap();
     }
 
     #[test]
     fn test_nom_valid_seconds_range() {
         let expression = "0-40 * * * * *";
-        schedule(Input(expression)).unwrap();
+        schedule(expression).unwrap();
     }
 
     #[test]
     fn test_nom_valid_seconds_mix() {
         let expression = "0-5,58 * * * * *";
-        schedule(Input(expression)).unwrap();
+        schedule(expression).unwrap();
     }
 
     #[test]
     fn test_nom_invalid_seconds_range() {
         let expression = "0-65 * * * * *";
-        assert!(schedule(Input(expression)).is_err());
+        assert!(schedule(expression).is_err());
     }
 
     #[test]
     fn test_nom_invalid_seconds_list() {
         let expression = "103,12 * * * * *";
-        assert!(schedule(Input(expression)).is_err());
+        assert!(schedule(expression).is_err());
     }
 
     #[test]
     fn test_nom_invalid_seconds_mix() {
         let expression = "0-5,102 * * * * *";
-        assert!(schedule(Input(expression)).is_err());
+        assert!(schedule(expression).is_err());
     }
 
     #[test]
     fn test_nom_valid_days_of_week_list() {
         let expression = "* * * * * MON,WED,FRI";
-        schedule(Input(expression)).unwrap();
+        schedule(expression).unwrap();
     }
 
     #[test]
     fn test_nom_invalid_days_of_week_list() {
         let expression = "* * * * * MON,TURTLE";
-        assert!(schedule(Input(expression)).is_err());
+        assert!(schedule(expression).is_err());
     }
 
     #[test]
     fn test_nom_valid_days_of_week_range() {
         let expression = "* * * * * MON-FRI";
-        schedule(Input(expression)).unwrap();
+        schedule(expression).unwrap();
     }
 
     #[test]
     fn test_nom_invalid_days_of_week_range() {
         let expression = "* * * * * BEAR-OWL";
-        assert!(schedule(Input(expression)).is_err());
+        assert!(schedule(expression).is_err());
     }
 
     #[test]
     fn test_nom_invalid_period_with_range_specifier() {
         let expression = "10-12/10-12 * * * * ?";
-        assert!(schedule(Input(expression)).is_err());
+        // is_space
+        assert!(schedule(expression).is_err());
     }
 
     #[test]
     fn test_nom_valid_days_of_month_any() {
         let expression = "* * * ? * *";
-        schedule(Input(expression)).unwrap();
+        schedule(expression).unwrap();
     }
 
     #[test]
     fn test_nom_valid_days_of_week_any() {
         let expression = "* * * * * ?";
-        schedule(Input(expression)).unwrap();
+        schedule(expression).unwrap();
     }
 
     #[test]
     fn test_nom_valid_days_of_month_any_days_of_week_specific() {
         let expression = "* * * ? * Mon,Thu";
-        schedule(Input(expression)).unwrap();
+        schedule(expression).unwrap();
     }
 
     #[test]
     fn test_nom_valid_days_of_week_any_days_of_month_specific() {
         let expression = "* * * 1,2 * ?";
-        schedule(Input(expression)).unwrap();
+        schedule(expression).unwrap();
     }
 
     #[test]
     fn test_nom_valid_dom_and_dow_any() {
         let expression = "* * * ? * ?";
-        schedule(Input(expression)).unwrap();
+        schedule(expression).unwrap();
     }
 
     #[test]
     fn test_nom_invalid_other_fields_any() {
         let expression = "? * * * * *";
-        assert!(schedule(Input(expression)).is_err());
+        assert!(schedule(expression).is_err());
 
         let expression = "* ? * * * *";
-        assert!(schedule(Input(expression)).is_err());
+        assert!(schedule(expression).is_err());
 
         let expression = "* * ? * * *";
-        assert!(schedule(Input(expression)).is_err());
+        assert!(schedule(expression).is_err());
 
         let expression = "* * * * ? *";
-        assert!(schedule(Input(expression)).is_err());
+        assert!(schedule(expression).is_err());
     }
 
     #[test]
     fn test_nom_invalid_trailing_characters() {
         let expression = "* * * * * *foo *";
-        assert!(schedule(Input(expression)).is_err());
+        assert!(schedule(expression).is_err());
 
         let expression = "* * * * * * * foo";
-        assert!(schedule(Input(expression)).is_err());
+        assert!(schedule(expression).is_err());
     }
 }
