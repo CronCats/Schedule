@@ -1,9 +1,10 @@
 use nom::character::complete::{alpha0, alpha1, digit0, digit1};
 use nom::character::is_space;
 use nom::character::streaming::multispace0;
+use nom::error::ParseError;
 use nom::{
-    alt, call, complete, do_parse, eof, error_position, map, map_res, named, opt, preceded, tag,
-    take_while,
+    alt, call, complete, do_parse, eof, error_position, map, map_res, named, opt, opt_res,
+    preceded, tag, take_while, IResult,
 };
 use nom::{separated_list0, separated_list1};
 use std::iter::Iterator;
@@ -43,7 +44,7 @@ impl FromStr for Schedule {
 }
 
 impl ScheduleFields {
-    fn from_field_list(fields: Vec<Field>) -> Result<ScheduleFields, Error> {
+    pub fn from_field_list(fields: Vec<Field>) -> Result<ScheduleFields, Error> {
         let number_of_fields = fields.len();
         if number_of_fields != 6 && number_of_fields != 7 {
             return Err(ErrorKind::Expression(format!(
@@ -113,47 +114,54 @@ where
     }
 }
 
-named!(
-    ordinal<&str, u32>,
-    map_res!(ws(digit1), |x: &str| x.parse())
-);
+fn ordinal<'a>(x: &'a str) -> IResult<&'a str, u32, nom::error::Error<&str>> {
+    nom::combinator::map_res(ws(digit1), |x: &str| x.parse())(x)
+}
 
-named!(
-    name<&str, String>,
-    map!(ws(alpha1), |x| x.to_owned())
-);
+// named!(
+//     ordinal<&str, u32>,
+//     map_res!(ws(digit1), |x: &str| x.parse())
+// );
 
-named!(
-    point<&str, Specifier>,
-    do_parse!(o: ordinal >> (Specifier::Point(o)))
-);
+fn name<'a>(x: &'a str) -> IResult<&'a str, String, nom::error::Error<&str>> {
+    nom::combinator::map(ws(alpha1), |x: &str| x.to_owned())(x)
+}
 
-named!(
-    named_point<&str, RootSpecifier>,
-    do_parse!(n: name >> (RootSpecifier::NamedPoint(n)))
-);
+// named!(
+//     name<&str, String>,
+//     map!(ws(alpha1), |x| x.to_owned())
+// );
 
-use nom::{number::streaming::be_u8, take};
+fn point<'a>(x: &'a str) -> IResult<&'a str, Specifier, nom::error::Error<&str>> {
+    nom::combinator::map(ordinal, |n| Specifier::Point(n))(x)
+}
 
-named!(
-    tag_length_value<(u8, &[u8])>,
-    do_parse!(
-      tag!( &[ 42u8 ][..] ) >>
-      length: be_u8         >>
-      bytes:  take!(length) >>
-      (length, bytes)
-    )
-);
+// named!(
+//     point<&str, Specifier>,
+//     do_parse!(o: ordinal >> (Specifier::Point(o)))
+// );
 
-named!(
-    period<&str, RootSpecifier>,
-    complete!(do_parse!(
-        start: specifier >>
-        tag!("/") >>
-        step: ordinal >>
-        (RootSpecifier::Period(start, step))
-    ))
-);
+fn named_point<'a>(x: &'a str) -> IResult<&'a str, RootSpecifier, nom::error::Error<&str>> {
+    nom::combinator::map(name, |name| RootSpecifier::NamedPoint(name))(x)
+}
+
+// TODO: complete
+fn period<'a>(x: &'a str) -> IResult<&'a str, RootSpecifier, nom::error::Error<&str>> {
+    let (input, start) = specifier(x)?;
+    let (input, _x) = nom::bytes::complete::tag("/")(input)?;
+    let (input, step) = ordinal(input)?;
+    Ok((input, RootSpecifier::Period(start, step)))
+}
+
+// named!(
+//     period<&str, RootSpecifier>,
+//     complete!(do_parse!(
+//         start: specifier >>
+//         tag!("/") >>
+//         step: ordinal >>
+//         (RootSpecifier::Period(start, step))
+//     ))
+// );
 
 named!(
     period_with_any<&str, RootSpecifier>,
@@ -162,12 +170,19 @@ named!(
     ))
 );
 
-named!(
-    range<&str, Specifier>,
-    complete!(do_parse!(
-        start: ordinal >> tag!("-") >> end: ordinal >> (Specifier::Range(start, end))
-    ))
-);
+fn range<'a>(x: &'a str) -> IResult<&'a str, Specifier, nom::error::Error<&str>> {
+    let (input, start) = ordinal(x)?;
+    let (input, _x) = nom::bytes::complete::tag("-")(input)?;
+    let (input, step) = ordinal(input)?;
+    Ok((input, Specifier::Range(start, step)))
+}
+
+// named!(
+//     range<&str, Specifier>,
+//     complete!(do_parse!(
+//         start: ordinal >> tag!("-") >> end: ordinal >> (Specifier::Range(start, end))
+//     ))
+// );
 
 named!(
     named_range<&str, Specifier>,
@@ -176,14 +191,22 @@ named!(
     ))
 );
 
-named!(all<&str, Specifier>, do_parse!(tag!("*") >> (Specifier::All)));
+fn all<'a>(x: &'a str) -> IResult<&'a str, Specifier, nom::error::Error<&str>> {
+    nom::combinator::map(nom::bytes::complete::tag("*"), |_s: &str| Specifier::All)(x)
+}
+
+// named!(all<&str, Specifier>, do_parse!(tag!("*") >> (Specifier::All)));
 
 named!(any<&str, Specifier>, do_parse!(tag!("?") >> (Specifier::All)));
 
-named!(
-    specifier<&str, Specifier>,
-    alt!(all | range | point | named_range)
-);
+fn specifier<'a>(x: &'a str) -> IResult<&'a str, Specifier, nom::error::Error<&str>> {
+    nom::branch::alt((all, range, point, named_range))(x)
+}
+
+// named!(
+//     specifier<&str, Specifier>,
+//     alt!(all | range | point | named_range)
+// );
 
 named!(
     specifier_with_any<&str, Specifier>,
@@ -193,41 +216,70 @@ named!(
     )
 );
 
-named!(
-    root_specifier<&str, RootSpecifier>,
-    alt!(period | map!(specifier, RootSpecifier::from) | named_point)
-);
+fn root_specifier<'a>(x: &'a str) -> IResult<&'a str, RootSpecifier, nom::error::Error<&str>> {
+    nom::branch::alt((
+        period,
+        nom::combinator::map(specifier, |s| RootSpecifier::Specifier(s)),
+        named_point,
+    ))(x)
+}
+
+// named!(
+//     root_specifier<&str, RootSpecifier>,
+//     alt!(period | map!(specifier, RootSpecifier::from) | named_point)
+// );
 
 named!(
     root_specifier_with_any<&str, RootSpecifier>,
     alt!(period_with_any | map!(specifier_with_any, RootSpecifier::from) | named_point)
 );
 
-named!(
-    root_specifier_list<&str, Vec<RootSpecifier>>,
-    alt!(
-        do_parse!(list: separated_list1!(nom::bytes::complete::tag(","), root_specifier) >> (list))
-            | do_parse!(spec: root_specifier >> (vec![spec]))
-    )
-);
+fn root_specifier_list<'a>(
+    x: &'a str,
+) -> IResult<&'a str, Vec<RootSpecifier>, nom::error::Error<&str>> {
+    ws(nom::branch::alt((
+        nom::multi::separated_list1(nom::bytes::complete::tag(","), root_specifier),
+        nom::combinator::map(root_specifier, |spec| vec![spec]),
+    )))(x)
+}
 
-named!(
-    root_specifier_list_with_any<&str, Vec<RootSpecifier>>,
-    alt!(
-        do_parse!(list: separated_list1!(nom::bytes::complete::tag(","), root_specifier_with_any) >> (list))
-            | do_parse!(spec: root_specifier_with_any >> (vec![spec]))
-    )
-);
+// named!(
+//     root_specifier_list<&str, Vec<RootSpecifier>>,
+//     alt!(
+//         do_parse!(list: separated_list1!(nom::bytes::complete::tag(","), root_specifier) >> (list))
+//             | do_parse!(spec: root_specifier >> (vec![spec]))
+//     )
+// );
 
-named!(
-    field<&str, Field>,
-    do_parse!(specifiers: root_specifier_list >> (Field { specifiers }))
-);
+fn root_specifier_list_with_any<'a>(
+    x: &'a str,
+) -> IResult<&'a str, Vec<RootSpecifier>, nom::error::Error<&str>> {
+    ws(nom::branch::alt((
+        nom::multi::separated_list1(nom::bytes::complete::tag(","), root_specifier_with_any),
+        nom::combinator::map(root_specifier_with_any, |spec| vec![spec]),
+    )))(x)
+}
+
+// named!(
+//     root_specifier_list_with_any<&str, Vec<RootSpecifier>>,
+//     alt!(
+//         do_parse!(list: separated_list1!(nom::bytes::complete::tag(","), root_specifier_with_any) >> (list))
+//             | do_parse!(spec: root_specifier_with_any >> (vec![spec]))
+//     )
+// );
+
+fn field<'a>(x: &'a str) -> IResult<&'a str, Field, nom::error::Error<&str>> {
+    nom::combinator::map(root_specifier_list, |specifiers| Field { specifiers })(x)
+}
+
+// named!(
+//     field<&str, Field>,
+//     do_parse!(specifiers: root_specifier_list >> (Field { specifiers }))
+// );
+
 named!(
     field_with_any<&str, Field>,
-    alt!(
-        do_parse!(specifiers: root_specifier_list_with_any >>(Field { specifiers }))
-    )
+    alt!(do_parse!(specifiers: root_specifier_list_with_any >> (Field { specifiers })))
 );
 
 named!(
@@ -321,36 +373,63 @@ named!(
     )
 );
 
-named!(
-    longhand<&str, ScheduleFields>,
-    map_res!(
-        complete!(do_parse!(
-            seconds: field >>
-            minutes: field >>
-            hours: field >>
-            days_of_month: field_with_any >>
-            months: field >>
-            days_of_week: field_with_any >>
-            years: opt!(field) >>
-            eof!() >>
-            ({
-                let mut fields = vec![
-                    seconds,
-                    minutes,
-                    hours,
-                    days_of_month,
-                    months,
-                    days_of_week,
-                ];
-                if let Some(years) = years {
-                    fields.push(years);
-                }
-                fields
-            })
-        )),
-        ScheduleFields::from_field_list
-    )
-);
+// TODO: map_res: complete
+fn longhand<'a>(x: &'a str) -> IResult<&'a str, ScheduleFields, nom::error::Error<&'a str>> {
+    let (input, seconds) = field(x)?;
+    let (input, minutes) = field(input)?;
+    let (input, hours) = field(input)?;
+    let (input, days_of_month) = field_with_any(input)?;
+    let (input, months) = field(input)?;
+    let (input, days_of_week) = field_with_any(input)?;
+    let (input, years) = nom::combinator::opt(field)(input)?;
+
+    let mut fields = vec![seconds, minutes, hours, days_of_month, months, days_of_week];
+    if let Some(years) = years {
+        fields.push(years);
+    }
+    let (input, _b) = nom::combinator::complete(nom::combinator::eof)(input)?;
+    match ScheduleFields::from_field_list(fields) {
+        Ok(fields) => Ok((input, fields)),
+        Err(_) => Err(nom::Err::Error(nom::error::Error::from_error_kind(
+            input,
+            nom::error::ErrorKind::Complete,
+        ))),
+    }
+    // let schedule_fields = ScheduleFields::from_field_list(fields);
+    // Ok((input, schedule_fields))
+}
+
+// named!(
+//     longhand<&str, ScheduleFields>,
+//     map_res!(
+//         complete!(do_parse!(
+//             seconds: field >>
+//             minutes: field >>
+//             hours: field >>
+//             days_of_month: field_with_any >>
+//             months: field >>
+//             days_of_week: field_with_any >>
+//             years: opt!(field) >>
+//             eof!() >>
+//             ({
+//                 let mut fields = vec![
+//                     seconds,
+//                     minutes,
+//                     hours,
+//                     days_of_month,
+//                     months,
+//                     days_of_week,
+//                 ];
+//                 if let Some(years) = years {
+//                     fields.push(years);
+//                 }
+//                 println!("{fields:?}");
+//                 fields
+//             })
+//         )),
+//         ScheduleFields::from_field_list
+//     )
+// );
 
 named!(schedule<&str, ScheduleFields>, alt!(shorthand | longhand));
 #[cfg(test)]
@@ -406,7 +485,6 @@ mod test {
         let (input, f) = field(expression).unwrap();
 
         let (input, f1) = field(input).unwrap();
-        println!("{input}, {f1:?}");
         assert!(input.is_empty());
         assert_eq!(
             f,
@@ -420,7 +498,7 @@ mod test {
         assert_eq!(
             f1,
             Field {
-                specifiers: vec![RootSpecifier::Specifier(Specifier::Point(3))]
+                specifiers: vec![RootSpecifier::Specifier(Specifier::All)]
             }
         );
         let (input, f) = field_with_any(expression).unwrap();
@@ -439,7 +517,7 @@ mod test {
         assert_eq!(
             f1,
             Field {
-                specifiers: vec![RootSpecifier::Specifier(Specifier::Point(3))]
+                specifiers: vec![RootSpecifier::Specifier(Specifier::All)]
             }
         );
     }
@@ -736,9 +814,45 @@ mod test {
     }
 
     #[test]
-    fn test_valid_longhand() {
+    fn test_valid_longhand_with_year() {
+        let expression = "* * * * * * *";
+        let res = longhand(expression).unwrap();
+        assert_eq!(
+            res,
+            (
+                "",
+                ScheduleFields::new(
+                    Seconds::all(),
+                    Minutes::all(),
+                    Hours::all(),
+                    DaysOfMonth::all(),
+                    Months::all(),
+                    DaysOfWeek::all(),
+                    Years::all()
+                )
+            )
+        )
+    }
+
+    #[test]
+    fn test_valid_longhand_without_year() {
         let expression = "* * * * * *";
-        longhand(expression).unwrap();
+        let res = longhand(expression).unwrap();
+        assert_eq!(
+            res,
+            (
+                "",
+                ScheduleFields::new(
+                    Seconds::all(),
+                    Minutes::all(),
+                    Hours::all(),
+                    DaysOfMonth::all(),
+                    Months::all(),
+                    DaysOfWeek::all(),
+                    Years::all()
+                )
+            )
+        )
     }
 
     #[test]

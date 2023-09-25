@@ -376,6 +376,8 @@ mod test {
         let schedule_4 = Schedule::from_str("0 0 0 * * * *").unwrap();
         assert_ne!(schedule_1, schedule_2);
         assert!(schedule_1.timeunitspec_eq(&schedule_2));
+
+        println!("sc3:{schedule_3:?}\nsc4:{schedule_4:?}");
         assert!(schedule_3.timeunitspec_eq(&schedule_4));
     }
 }
