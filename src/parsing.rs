@@ -282,13 +282,19 @@ fn shorthand_hourly(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<
 }
 
 fn shorthand(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
-    alt((
-        shorthand_yearly,
-        shorthand_monthly,
-        shorthand_weekly,
-        shorthand_daily,
-        shorthand_hourly,
-    ))(x)
+    map(
+        tuple((
+            (alt((
+                shorthand_yearly,
+                shorthand_monthly,
+                shorthand_weekly,
+                shorthand_daily,
+                shorthand_hourly,
+            ))),
+            complete(eof),
+        )),
+        |(schedule, _eof)| schedule,
+    )(x)
 }
 
 fn longhand(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
@@ -691,10 +697,18 @@ mod test {
 
     #[test]
     fn test_invalid_shorthand() {
+        // wrong format
         let expression = "@minutely";
         assert!(shorthand(expression).is_err());
 
         let expression = "bad_format";
+        assert!(shorthand(expression).is_err());
+
+        // with extra symbols
+        let expression = "@yearly ";
+        assert!(shorthand(expression).is_err());
+
+        let expression = " @yearly";
         assert!(shorthand(expression).is_err());
     }
 
@@ -743,7 +757,22 @@ mod test {
     #[test]
     fn test_nom_valid_schedule() {
         let expression = "* * * * * *";
-        schedule(expression).unwrap();
+        let res = schedule(expression).unwrap();
+        assert_eq!(
+            res,
+            (
+                "",
+                ScheduleFields::new(
+                    Seconds::all(),
+                    Minutes::all(),
+                    Hours::all(),
+                    DaysOfMonth::all(),
+                    Months::all(),
+                    DaysOfWeek::all(),
+                    Years::all()
+                )
+            )
+        )
     }
 
     #[test]
@@ -755,19 +784,66 @@ mod test {
     #[test]
     fn test_nom_valid_seconds_list() {
         let expression = "0,20,40 * * * * *";
-        schedule(expression).unwrap();
+        let res = schedule(expression).unwrap();
+        assert_eq!(
+            res,
+            (
+                "",
+                ScheduleFields::new(
+                    Seconds::from_ordinal_set(OrdinalSet::from([0, 20, 40])),
+                    Minutes::all(),
+                    Hours::all(),
+                    DaysOfMonth::all(),
+                    Months::all(),
+                    DaysOfWeek::all(),
+                    Years::all()
+                )
+            )
+        )
     }
 
     #[test]
     fn test_nom_valid_seconds_range() {
         let expression = "0-40 * * * * *";
-        schedule(expression).unwrap();
+        let res = schedule(expression).unwrap();
+        assert_eq!(
+            res,
+            (
+                "",
+                ScheduleFields::new(
+                    Seconds::from_ordinal_set(OrdinalSet::from_iter(0..=40)),
+                    Minutes::all(),
+                    Hours::all(),
+                    DaysOfMonth::all(),
+                    Months::all(),
+                    DaysOfWeek::all(),
+                    Years::all()
+                )
+            )
+        )
     }
 
     #[test]
     fn test_nom_valid_seconds_mix() {
         let expression = "0-5,58 * * * * *";
-        schedule(expression).unwrap();
+        let res = schedule(expression).unwrap();
+        assert_eq!(
+            res,
+            (
+                "",
+                ScheduleFields::new(
+                    Seconds::from_ordinal_set(OrdinalSet::from_iter(
+                        (0..=5).chain(std::iter::once(58))
+                    )),
+                    Minutes::all(),
+                    Hours::all(),
+                    DaysOfMonth::all(),
+                    Months::all(),
+                    DaysOfWeek::all(),
+                    Years::all()
+                )
+            )
+        )
     }
 
     #[test]
@@ -791,7 +867,22 @@ mod test {
     #[test]
     fn test_nom_valid_days_of_week_list() {
         let expression = "* * * * * MON,WED,FRI";
-        schedule(expression).unwrap();
+        let res = schedule(expression).unwrap();
+        assert_eq!(
+            res,
+            (
+                "",
+                ScheduleFields::new(
+                    Seconds::all(),
+                    Minutes::all(),
+                    Hours::all(),
+                    DaysOfMonth::all(),
+                    Months::all(),
+                    DaysOfWeek::from_ordinal_set(OrdinalSet::from([2, 4, 6])),
+                    Years::all()
+                )
+            )
+        )
     }
 
     #[test]
@@ -803,7 +894,22 @@ mod test {
     #[test]
     fn test_nom_valid_days_of_week_range() {
         let expression = "* * * * * MON-FRI";
-        schedule(expression).unwrap();
+        let res = schedule(expression).unwrap();
+        assert_eq!(
+            res,
+            (
+                "",
+                ScheduleFields::new(
+                    Seconds::all(),
+                    Minutes::all(),
+                    Hours::all(),
+                    DaysOfMonth::all(),
+                    Months::all(),
+                    DaysOfWeek::from_ordinal_set(OrdinalSet::from_iter(2..=6)),
+                    Years::all()
+                )
+            )
+        )
     }
 
     #[test]
@@ -822,31 +928,106 @@ mod test {
     #[test]
     fn test_nom_valid_days_of_month_any() {
         let expression = "* * * ? * *";
-        schedule(expression).unwrap();
+        let res = schedule(expression).unwrap();
+        assert_eq!(
+            res,
+            (
+                "",
+                ScheduleFields::new(
+                    Seconds::all(),
+                    Minutes::all(),
+                    Hours::all(),
+                    DaysOfMonth::all(),
+                    Months::all(),
+                    DaysOfWeek::all(),
+                    Years::all()
+                )
+            )
+        )
     }
 
     #[test]
     fn test_nom_valid_days_of_week_any() {
         let expression = "* * * * * ?";
-        schedule(expression).unwrap();
+        let res = schedule(expression).unwrap();
+        assert_eq!(
+            res,
+            (
+                "",
+                ScheduleFields::new(
+                    Seconds::all(),
+                    Minutes::all(),
+                    Hours::all(),
+                    DaysOfMonth::all(),
+                    Months::all(),
+                    DaysOfWeek::all(),
+                    Years::all()
+                )
+            )
+        )
     }
 
     #[test]
     fn test_nom_valid_days_of_month_any_days_of_week_specific() {
         let expression = "* * * ? * Mon,Thu";
-        schedule(expression).unwrap();
+        let res = schedule(expression).unwrap();
+        assert_eq!(
+            res,
+            (
+                "",
+                ScheduleFields::new(
+                    Seconds::all(),
+                    Minutes::all(),
+                    Hours::all(),
+                    DaysOfMonth::all(),
+                    Months::all(),
+                    DaysOfWeek::from_ordinal_set(OrdinalSet::from([2,5])),
+                    Years::all()
+                )
+            )
+        )
     }
 
     #[test]
     fn test_nom_valid_days_of_week_any_days_of_month_specific() {
         let expression = "* * * 1,2 * ?";
-        schedule(expression).unwrap();
+        let res = schedule(expression).unwrap();
+        assert_eq!(
+            res,
+            (
+                "",
+                ScheduleFields::new(
+                    Seconds::all(),
+                    Minutes::all(),
+                    Hours::all(),
+                    DaysOfMonth::from_ordinal_set(OrdinalSet::from([1,2])),
+                    Months::all(),
+                    DaysOfWeek::all(),
+                    Years::all()
+                )
+            )
+        )
     }
 
     #[test]
     fn test_nom_valid_dom_and_dow_any() {
         let expression = "* * * ? * ?";
-        schedule(expression).unwrap();
+        let res = schedule(expression).unwrap();
+        assert_eq!(
+            res,
+            (
+                "",
+                ScheduleFields::new(
+                    Seconds::all(),
+                    Minutes::all(),
+                    Hours::all(),
+                    DaysOfMonth::all(),
+                    Months::all(),
+                    DaysOfWeek::all(),
+                    Years::all()
+                )
+            )
+        )
     }
 
     #[test]
