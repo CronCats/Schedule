@@ -111,7 +111,7 @@ impl Schedule {
                                 {
                                     continue 'day_loop;
                                 }
-                                return Some(candidate.timestamp_nanos() as u64);
+                                return Some(candidate.timestamp_nanos_opt().unwrap() as u64);
                             }
                             query.reset_minute();
                         } // End of minutes range
@@ -130,7 +130,7 @@ impl Schedule {
     /// Provides an iterator which will return each DateTime that matches the schedule starting with
     /// the current time if applicable.
     pub fn upcoming(&self) -> ScheduleIterator {
-        self.after(&(Utc::now().naive_utc().timestamp_nanos() as u64))
+        self.after(&(Utc::now().naive_utc().timestamp_nanos_opt().unwrap() as u64))
     }
 
     /// Like the `upcoming` method, but allows you to specify a start time other than the present.
@@ -308,7 +308,7 @@ mod test {
     fn test_next_duration() {
         let expression = "0 5,13,40-42 17 1 Jan *";
         let schedule = Schedule::from_str(expression).unwrap();
-        let next = schedule.next_after(&(Utc::now().timestamp_nanos() as u64));
+        let next = schedule.next_after(&(Utc::now().timestamp_nanos_opt().unwrap() as u64));
         println!("NEXT DURATION------- for {} {:?}", expression, next);
         assert!(next.is_some());
     }
@@ -317,7 +317,7 @@ mod test {
     fn test_next_after() {
         let expression = "0 5,13,40-42 17 1 Jan *";
         let schedule = Schedule::from_str(expression).unwrap();
-        let next = schedule.next_after(&(Utc::now().timestamp_nanos() as u64));
+        let next = schedule.next_after(&(Utc::now().timestamp_nanos_opt().unwrap() as u64));
         println!("NEXT AFTER for {} {:?}", expression, next);
         assert!(next.is_some());
     }
