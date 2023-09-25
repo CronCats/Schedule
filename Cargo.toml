@@ -1,6 +1,6 @@
 [package]
 name = "cron_schedule"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["CronCat <meow@cron.cat>"]
 repository = "https://github.com/Cron-Near/Schedule"
 documentation = "https://docs.rs/cron_schedule"
