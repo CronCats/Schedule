@@ -310,8 +310,8 @@ mod tests {
         let schedule = Schedule::from_str(expression).expect("Failed to parse expression.");
 
         // Membership
-        assert_eq!(true, schedule.years().includes(2031));
-        assert_eq!(false, schedule.years().includes(1969));
+        assert!(schedule.years().includes(2031));
+        assert!(!schedule.years().includes(1969));
 
         // Number of years specified
         assert_eq!(30, schedule.years().count());
@@ -338,8 +338,8 @@ mod tests {
         let schedule = Schedule::from_str(expression).expect("Failed to parse expression.");
 
         // Membership
-        assert_eq!(false, schedule.months().includes(4));
-        assert_eq!(true, schedule.months().includes(6));
+        assert!(!schedule.months().includes(4));
+        assert!(schedule.months().includes(6));
 
         // Iterator
         let mut summer = schedule.months().iter();
@@ -364,8 +364,8 @@ mod tests {
         let expression = "* * * 1,15 * * *";
         let schedule = Schedule::from_str(expression).expect("Failed to parse expression.");
         // Membership
-        assert_eq!(true, schedule.days_of_month().includes(1));
-        assert_eq!(false, schedule.days_of_month().includes(7));
+        assert!(schedule.days_of_month().includes(1));
+        assert!(!schedule.days_of_month().includes(7));
 
         // Iterator
         let mut paydays = schedule.days_of_month().iter();
@@ -391,7 +391,7 @@ mod tests {
             .unwrap()
             .timestamp_nanos() as u64;
         let start_time_1 = &start_time_1;
-        let next_time_1 = schedule.after(&start_time_1).next().unwrap();
+        let next_time_1 = schedule.after(start_time_1).next().unwrap();
 
         let start_time_2 = NaiveDate::from_ymd_opt(2017, 10, 24)
             .unwrap()
@@ -399,7 +399,7 @@ mod tests {
             .unwrap()
             .timestamp_nanos() as u64;
         let start_time_2 = &start_time_2;
-        let next_time_2 = schedule.after(&start_time_2).next().unwrap();
+        let next_time_2 = schedule.after(start_time_2).next().unwrap();
         assert_eq!(next_time_1, next_time_2);
     }
 
@@ -412,10 +412,10 @@ mod tests {
             .unwrap()
             .timestamp_nanos() as u64;
         let start_time = &start_time;
-        let next_time_1 = schedule_1.after(&start_time).next().unwrap();
+        let next_time_1 = schedule_1.after(start_time).next().unwrap();
 
         let schedule_2 = "00 00 * * * * *".parse::<Schedule>().unwrap();
-        let next_time_2 = schedule_2.after(&start_time).next().unwrap();
+        let next_time_2 = schedule_2.after(start_time).next().unwrap();
         assert_eq!(next_time_1, next_time_2);
     }
 

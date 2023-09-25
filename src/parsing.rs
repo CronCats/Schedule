@@ -1,7 +1,10 @@
-use nom::character::complete::{alpha1, digit1};
+use nom::branch::alt;
+use nom::bytes::complete::tag;
+use nom::character::complete::{alpha1, digit1, multispace0};
 
-use nom::error::ParseError;
-use nom::{alt, complete, do_parse, map, named, tag, IResult};
+use nom::combinator::{complete, eof, map, map_res, opt};
+use nom::multi::separated_list1;
+use nom::{error::FromExternalError, IResult};
 
 use std::iter::Iterator;
 use std::str::{self, FromStr};
@@ -20,11 +23,7 @@ fn ws<'a, F, O, E: nom::error::ParseError<&'a str>>(
 where
     F: nom::Parser<&'a str, O, E>,
 {
-    nom::sequence::delimited(
-        nom::character::complete::multispace0,
-        inner,
-        nom::character::complete::multispace0,
-    )
+    nom::sequence::delimited(multispace0, inner, multispace0)
 }
 
 impl FromStr for Schedule {
@@ -111,248 +110,187 @@ where
 }
 
 fn ordinal(x: &str) -> IResult<&str, u32, nom::error::Error<&str>> {
-    nom::combinator::map_res(ws(digit1), u32::from_str)(x)
+    map_res(ws(digit1), u32::from_str)(x)
 }
 
 fn name(x: &str) -> IResult<&str, String, nom::error::Error<&str>> {
-    nom::combinator::map(ws(alpha1), String::from)(x)
+    map(ws(alpha1), String::from)(x)
 }
 
 fn point(x: &str) -> IResult<&str, Specifier, nom::error::Error<&str>> {
-    nom::combinator::map(ordinal, Specifier::Point)(x)
+    map(ordinal, Specifier::Point)(x)
 }
 
 fn named_point(x: &str) -> IResult<&str, RootSpecifier, nom::error::Error<&str>> {
-    nom::combinator::map(name, RootSpecifier::NamedPoint)(x)
+    map(name, RootSpecifier::NamedPoint)(x)
 }
 
-// TODO: complete
 fn period(x: &str) -> IResult<&str, RootSpecifier, nom::error::Error<&str>> {
     let (input, start) = specifier(x)?;
-    let (input, _x) = nom::bytes::complete::tag("/")(input)?;
+    let (input, _x) = tag("/")(input)?;
     let (input, step) = ordinal(input)?;
     Ok((input, RootSpecifier::Period(start, step)))
 }
 
-// named!(
-//     period<&str, RootSpecifier>,
-//     complete!(do_parse!(
-//         start: specifier >>
-//         tag!("/") >>
-//         step: ordinal >>
-//         (RootSpecifier::Period(start, step))
-//     ))
-// );
-
-named!(
-    period_with_any<&str, RootSpecifier>,
-    complete!(do_parse!(
-        start: specifier_with_any >> tag!("/") >> step: ordinal >> (RootSpecifier::Period(start, step))
-    ))
-);
+fn period_with_any(x: &str) -> IResult<&str, RootSpecifier, nom::error::Error<&str>> {
+    let (input, start) = specifier_with_any(x)?;
+    let (input, _x) = tag("/")(input)?;
+    let (input, step) = ordinal(input)?;
+    Ok((input, RootSpecifier::Period(start, step)))
+}
 
 fn range(x: &str) -> IResult<&str, Specifier, nom::error::Error<&str>> {
     let (input, start) = ordinal(x)?;
-    let (input, _x) = nom::bytes::complete::tag("-")(input)?;
+    let (input, _x) = tag("-")(input)?;
     let (input, step) = ordinal(input)?;
     Ok((input, Specifier::Range(start, step)))
 }
 
-// named!(
-//     range<&str, Specifier>,
-//     complete!(do_parse!(
-//         start: ordinal >> tag!("-") >> end: ordinal >> (Specifier::Range(start, end))
-//     ))
-// );
-
-named!(
-    named_range<&str, Specifier>,
-    complete!(do_parse!(
-        start: name >> tag!("-") >> end: name >> (Specifier::NamedRange(start, end))
-    ))
-);
+fn named_range(x: &str) -> IResult<&str, Specifier, nom::error::Error<&str>> {
+    let (input, start) = name(x)?;
+    let (input, _x) = tag("-")(input)?;
+    let (input, step) = name(input)?;
+    Ok((input, Specifier::NamedRange(start, step)))
+}
 
 fn all(x: &str) -> IResult<&str, Specifier, nom::error::Error<&str>> {
-    nom::combinator::map(nom::bytes::complete::tag("*"), |_s: &str| Specifier::All)(x)
+    map(tag("*"), |_s: &str| Specifier::All)(x)
 }
 
-// named!(all<&str, Specifier>, do_parse!(tag!("*") >> (Specifier::All)));
-
-named!(any<&str, Specifier>, do_parse!(tag!("?") >> (Specifier::All)));
+fn any(x: &str) -> IResult<&str, Specifier, nom::error::Error<&str>> {
+    map(tag("?"), |_s: &str| Specifier::All)(x)
+}
 
 fn specifier(x: &str) -> IResult<&str, Specifier, nom::error::Error<&str>> {
-    nom::branch::alt((all, range, point, named_range))(x)
+    alt((all, range, point, named_range))(x)
 }
 
-// named!(
-//     specifier<&str, Specifier>,
-//     alt!(all | range | point | named_range)
-// );
-
-named!(
-    specifier_with_any<&str, Specifier>,
-    alt!(
-        any |
-        specifier
-    )
-);
+fn specifier_with_any(x: &str) -> IResult<&str, Specifier, nom::error::Error<&str>> {
+    alt((any, specifier))(x)
+}
 
 fn root_specifier(x: &str) -> IResult<&str, RootSpecifier, nom::error::Error<&str>> {
-    nom::branch::alt((
+    alt((
         period,
-        nom::combinator::map(specifier, RootSpecifier::Specifier),
+        map(specifier, RootSpecifier::Specifier),
         named_point,
     ))(x)
 }
 
-// named!(
-//     root_specifier<&str, RootSpecifier>,
-//     alt!(period | map!(specifier, RootSpecifier::from) | named_point)
-// );
-
-named!(
-    root_specifier_with_any<&str, RootSpecifier>,
-    alt!(period_with_any | map!(specifier_with_any, RootSpecifier::from) | named_point)
-);
-
-fn root_specifier_list(x: &str) -> IResult<&str, Vec<RootSpecifier>, nom::error::Error<&str>> {
-    ws(nom::branch::alt((
-        nom::multi::separated_list1(nom::bytes::complete::tag(","), root_specifier),
-        nom::combinator::map(root_specifier, |spec| vec![spec]),
-    )))(x)
+fn root_specifier_with_any(x: &str) -> IResult<&str, RootSpecifier, nom::error::Error<&str>> {
+    alt((
+        period_with_any,
+        map(specifier_with_any, RootSpecifier::from),
+        named_point,
+    ))(x)
 }
 
-// named!(
-//     root_specifier_list<&str, Vec<RootSpecifier>>,
-//     alt!(
-//         do_parse!(list: separated_list1!(nom::bytes::complete::tag(","), root_specifier) >> (list))
-//             | do_parse!(spec: root_specifier >> (vec![spec]))
-//     )
-// );
+fn root_specifier_list(x: &str) -> IResult<&str, Vec<RootSpecifier>, nom::error::Error<&str>> {
+    ws(alt((
+        separated_list1(tag(","), root_specifier),
+        map(root_specifier, |spec| vec![spec]),
+    )))(x)
+}
 
 fn root_specifier_list_with_any(
     x: &str,
 ) -> IResult<&str, Vec<RootSpecifier>, nom::error::Error<&str>> {
-    ws(nom::branch::alt((
-        nom::multi::separated_list1(nom::bytes::complete::tag(","), root_specifier_with_any),
-        nom::combinator::map(root_specifier_with_any, |spec| vec![spec]),
+    ws(alt((
+        separated_list1(tag(","), root_specifier_with_any),
+        map(root_specifier_with_any, |spec| vec![spec]),
     )))(x)
 }
 
-// named!(
-//     root_specifier_list_with_any<&str, Vec<RootSpecifier>>,
-//     alt!(
-//         do_parse!(list: separated_list1!(nom::bytes::complete::tag(","), root_specifier_with_any) >> (list))
-//             | do_parse!(spec: root_specifier_with_any >> (vec![spec]))
-//     )
-// );
-
 fn field(x: &str) -> IResult<&str, Field, nom::error::Error<&str>> {
-    nom::combinator::map(root_specifier_list, |specifiers| Field { specifiers })(x)
+    map(root_specifier_list, |specifiers| Field { specifiers })(x)
 }
 
-// named!(
-//     field<&str, Field>,
-//     do_parse!(specifiers: root_specifier_list >> (Field { specifiers }))
-// );
+fn field_with_any(x: &str) -> IResult<&str, Field, nom::error::Error<&str>> {
+    map(root_specifier_list_with_any, |specifiers| Field {
+        specifiers,
+    })(x)
+}
 
-named!(
-    field_with_any<&str, Field>,
-    alt!(do_parse!(specifiers: root_specifier_list_with_any >> (Field { specifiers })))
-);
+fn shorthand_yearly(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
+    map(tag("@yearly"), |_eof| {
+        ScheduleFields::new(
+            Seconds::from_ordinal(0),
+            Minutes::from_ordinal(0),
+            Hours::from_ordinal(0),
+            DaysOfMonth::from_ordinal(1),
+            Months::from_ordinal(1),
+            DaysOfWeek::all(),
+            Years::all(),
+        )
+    })(x)
+}
 
-named!(
-    shorthand_yearly<&str, ScheduleFields>,
-    do_parse!(
-        tag!("@yearly")
-            >> (ScheduleFields::new(
-                Seconds::from_ordinal(0),
-                Minutes::from_ordinal(0),
-                Hours::from_ordinal(0),
-                DaysOfMonth::from_ordinal(1),
-                Months::from_ordinal(1),
-                DaysOfWeek::all(),
-                Years::all()
-            ))
-    )
-);
+fn shorthand_monthly(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
+    map(tag("@monthly"), |_eof| {
+        ScheduleFields::new(
+            Seconds::from_ordinal(0),
+            Minutes::from_ordinal(0),
+            Hours::from_ordinal(0),
+            DaysOfMonth::from_ordinal(1),
+            Months::all(),
+            DaysOfWeek::all(),
+            Years::all(),
+        )
+    })(x)
+}
 
-named!(
-    shorthand_monthly<&str, ScheduleFields>,
-    do_parse!(
-        tag!("@monthly")
-            >> (ScheduleFields::new(
-                Seconds::from_ordinal(0),
-                Minutes::from_ordinal(0),
-                Hours::from_ordinal(0),
-                DaysOfMonth::from_ordinal(1),
-                Months::all(),
-                DaysOfWeek::all(),
-                Years::all()
-            ))
-    )
-);
+fn shorthand_weekly(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
+    map(tag("@weekly"), |_eof| {
+        ScheduleFields::new(
+            Seconds::from_ordinal(0),
+            Minutes::from_ordinal(0),
+            Hours::from_ordinal(0),
+            DaysOfMonth::all(),
+            Months::all(),
+            DaysOfWeek::from_ordinal(1),
+            Years::all(),
+        )
+    })(x)
+}
 
-named!(
-    shorthand_weekly<&str, ScheduleFields>,
-    do_parse!(
-        tag!("@weekly")
-            >> (ScheduleFields::new(
-                Seconds::from_ordinal(0),
-                Minutes::from_ordinal(0),
-                Hours::from_ordinal(0),
-                DaysOfMonth::all(),
-                Months::all(),
-                DaysOfWeek::from_ordinal(1),
-                Years::all()
-            ))
-    )
-);
+fn shorthand_daily(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
+    map(tag("@daily"), |_eof| {
+        ScheduleFields::new(
+            Seconds::from_ordinal(0),
+            Minutes::from_ordinal(0),
+            Hours::from_ordinal(0),
+            DaysOfMonth::all(),
+            Months::all(),
+            DaysOfWeek::all(),
+            Years::all(),
+        )
+    })(x)
+}
 
-named!(
-    shorthand_daily<&str, ScheduleFields>,
-    do_parse!(
-        tag!("@daily")
-            >> (ScheduleFields::new(
-                Seconds::from_ordinal(0),
-                Minutes::from_ordinal(0),
-                Hours::from_ordinal(0),
-                DaysOfMonth::all(),
-                Months::all(),
-                DaysOfWeek::all(),
-                Years::all()
-            ))
-    )
-);
+fn shorthand_hourly(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
+    map(tag("@hourly"), |_eof| {
+        ScheduleFields::new(
+            Seconds::from_ordinal(0),
+            Minutes::from_ordinal(0),
+            Hours::all(),
+            DaysOfMonth::all(),
+            Months::all(),
+            DaysOfWeek::all(),
+            Years::all(),
+        )
+    })(x)
+}
 
-named!(
-    shorthand_hourly<&str, ScheduleFields>,
-    do_parse!(
-        tag!("@hourly")
-            >> (ScheduleFields::new(
-                Seconds::from_ordinal(0),
-                Minutes::from_ordinal(0),
-                Hours::all(),
-                DaysOfMonth::all(),
-                Months::all(),
-                DaysOfWeek::all(),
-                Years::all()
-            ))
-    )
-);
+fn shorthand(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
+    alt((
+        shorthand_yearly,
+        shorthand_monthly,
+        shorthand_weekly,
+        shorthand_daily,
+        shorthand_hourly,
+    ))(x)
+}
 
-named!(
-    shorthand<&str, ScheduleFields>,
-    alt!(
-        shorthand_yearly
-            | shorthand_monthly
-            | shorthand_weekly
-            | shorthand_daily
-            | shorthand_hourly
-    )
-);
-
-// TODO: map_res: complete
 fn longhand(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
     let (input, seconds) = field(x)?;
     let (input, minutes) = field(input)?;
@@ -360,57 +298,27 @@ fn longhand(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
     let (input, days_of_month) = field_with_any(input)?;
     let (input, months) = field(input)?;
     let (input, days_of_week) = field_with_any(input)?;
-    let (input, years) = nom::combinator::opt(field)(input)?;
+    let (input, years) = opt(field)(input)?;
 
     let mut fields = vec![seconds, minutes, hours, days_of_month, months, days_of_week];
     if let Some(years) = years {
         fields.push(years);
     }
-    let (input, _b) = nom::combinator::complete(nom::combinator::eof)(input)?;
+    let (input, _b) = complete(eof)(input)?;
     match ScheduleFields::from_field_list(fields) {
         Ok(fields) => Ok((input, fields)),
-        Err(_) => Err(nom::Err::Error(nom::error::Error::from_error_kind(
+        Err(e) => Err(nom::Err::Error(nom::error::Error::from_external_error(
             input,
-            nom::error::ErrorKind::Complete,
+            nom::error::ErrorKind::MapRes,
+            e,
         ))),
     }
-    // let schedule_fields = ScheduleFields::from_field_list(fields);
-    // Ok((input, schedule_fields))
 }
 
-// named!(
-//     longhand<&str, ScheduleFields>,
-//     map_res!(
-//         complete!(do_parse!(
-//             seconds: field >>
-//             minutes: field >>
-//             hours: field >>
-//             days_of_month: field_with_any >>
-//             months: field >>
-//             days_of_week: field_with_any >>
-//             years: opt!(field) >>
-//             eof!() >>
-//             ({
-//                 let mut fields = vec![
-//                     seconds,
-//                     minutes,
-//                     hours,
-//                     days_of_month,
-//                     months,
-//                     days_of_week,
-//                 ];
-//                 if let Some(years) = years {
-//                     fields.push(years);
-//                 }
-//                 println!("{fields:?}");
-//                 fields
-//             })
-//         )),
-//         ScheduleFields::from_field_list
-//     )
-// );
+fn schedule(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
+    alt((shorthand, longhand))(x)
+}
 
-named!(schedule<&str, ScheduleFields>, alt!(shorthand | longhand));
 #[cfg(test)]
 mod test {
 
