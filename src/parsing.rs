@@ -1,12 +1,8 @@
-use nom::character::complete::{alpha0, alpha1, digit0, digit1};
-use nom::character::is_space;
-use nom::character::streaming::multispace0;
+use nom::character::complete::{alpha1, digit1};
+
 use nom::error::ParseError;
-use nom::{
-    alt, call, complete, do_parse, eof, error_position, map, map_res, named, opt, opt_res,
-    preceded, tag, take_while, IResult,
-};
-use nom::{separated_list0, separated_list1};
+use nom::{alt, complete, do_parse, map, named, tag, IResult};
+
 use std::iter::Iterator;
 use std::str::{self, FromStr};
 
@@ -114,39 +110,24 @@ where
     }
 }
 
-fn ordinal<'a>(x: &'a str) -> IResult<&'a str, u32, nom::error::Error<&str>> {
-    nom::combinator::map_res(ws(digit1), |x: &str| x.parse())(x)
+fn ordinal(x: &str) -> IResult<&str, u32, nom::error::Error<&str>> {
+    nom::combinator::map_res(ws(digit1), u32::from_str)(x)
 }
 
-// named!(
-//     ordinal<&str, u32>,
-//     map_res!(ws(digit1), |x: &str| x.parse())
-// );
-
-fn name<'a>(x: &'a str) -> IResult<&'a str, String, nom::error::Error<&str>> {
-    nom::combinator::map(ws(alpha1), |x: &str| x.to_owned())(x)
+fn name(x: &str) -> IResult<&str, String, nom::error::Error<&str>> {
+    nom::combinator::map(ws(alpha1), String::from)(x)
 }
 
-// named!(
-//     name<&str, String>,
-//     map!(ws(alpha1), |x| x.to_owned())
-// );
-
-fn point<'a>(x: &'a str) -> IResult<&'a str, Specifier, nom::error::Error<&str>> {
-    nom::combinator::map(ordinal, |n| Specifier::Point(n))(x)
+fn point(x: &str) -> IResult<&str, Specifier, nom::error::Error<&str>> {
+    nom::combinator::map(ordinal, Specifier::Point)(x)
 }
 
-// named!(
-//     point<&str, Specifier>,
-//     do_parse!(o: ordinal >> (Specifier::Point(o)))
-// );
-
-fn named_point<'a>(x: &'a str) -> IResult<&'a str, RootSpecifier, nom::error::Error<&str>> {
-    nom::combinator::map(name, |name| RootSpecifier::NamedPoint(name))(x)
+fn named_point(x: &str) -> IResult<&str, RootSpecifier, nom::error::Error<&str>> {
+    nom::combinator::map(name, RootSpecifier::NamedPoint)(x)
 }
 
 // TODO: complete
-fn period<'a>(x: &'a str) -> IResult<&'a str, RootSpecifier, nom::error::Error<&str>> {
+fn period(x: &str) -> IResult<&str, RootSpecifier, nom::error::Error<&str>> {
     let (input, start) = specifier(x)?;
     let (input, _x) = nom::bytes::complete::tag("/")(input)?;
     let (input, step) = ordinal(input)?;
@@ -170,7 +151,7 @@ named!(
     ))
 );
 
-fn range<'a>(x: &'a str) -> IResult<&'a str, Specifier, nom::error::Error<&str>> {
+fn range(x: &str) -> IResult<&str, Specifier, nom::error::Error<&str>> {
     let (input, start) = ordinal(x)?;
     let (input, _x) = nom::bytes::complete::tag("-")(input)?;
     let (input, step) = ordinal(input)?;
@@ -191,7 +172,7 @@ named!(
     ))
 );
 
-fn all<'a>(x: &'a str) -> IResult<&'a str, Specifier, nom::error::Error<&str>> {
+fn all(x: &str) -> IResult<&str, Specifier, nom::error::Error<&str>> {
     nom::combinator::map(nom::bytes::complete::tag("*"), |_s: &str| Specifier::All)(x)
 }
 
@@ -199,7 +180,7 @@ fn all<'a>(x: &'a str) -> IResult<&'a str, Specifier, nom::error::Error<&str>> {
 
 named!(any<&str, Specifier>, do_parse!(tag!("?") >> (Specifier::All)));
 
-fn specifier<'a>(x: &'a str) -> IResult<&'a str, Specifier, nom::error::Error<&str>> {
+fn specifier(x: &str) -> IResult<&str, Specifier, nom::error::Error<&str>> {
     nom::branch::alt((all, range, point, named_range))(x)
 }
 
@@ -216,10 +197,10 @@ named!(
     )
 );
 
-fn root_specifier<'a>(x: &'a str) -> IResult<&'a str, RootSpecifier, nom::error::Error<&str>> {
+fn root_specifier(x: &str) -> IResult<&str, RootSpecifier, nom::error::Error<&str>> {
     nom::branch::alt((
         period,
-        nom::combinator::map(specifier, |s| RootSpecifier::Specifier(s)),
+        nom::combinator::map(specifier, RootSpecifier::Specifier),
         named_point,
     ))(x)
 }
@@ -234,9 +215,7 @@ named!(
     alt!(period_with_any | map!(specifier_with_any, RootSpecifier::from) | named_point)
 );
 
-fn root_specifier_list<'a>(
-    x: &'a str,
-) -> IResult<&'a str, Vec<RootSpecifier>, nom::error::Error<&str>> {
+fn root_specifier_list(x: &str) -> IResult<&str, Vec<RootSpecifier>, nom::error::Error<&str>> {
     ws(nom::branch::alt((
         nom::multi::separated_list1(nom::bytes::complete::tag(","), root_specifier),
         nom::combinator::map(root_specifier, |spec| vec![spec]),
@@ -251,9 +230,9 @@ fn root_specifier_list<'a>(
 //     )
 // );
 
-fn root_specifier_list_with_any<'a>(
-    x: &'a str,
-) -> IResult<&'a str, Vec<RootSpecifier>, nom::error::Error<&str>> {
+fn root_specifier_list_with_any(
+    x: &str,
+) -> IResult<&str, Vec<RootSpecifier>, nom::error::Error<&str>> {
     ws(nom::branch::alt((
         nom::multi::separated_list1(nom::bytes::complete::tag(","), root_specifier_with_any),
         nom::combinator::map(root_specifier_with_any, |spec| vec![spec]),
@@ -268,7 +247,7 @@ fn root_specifier_list_with_any<'a>(
 //     )
 // );
 
-fn field<'a>(x: &'a str) -> IResult<&'a str, Field, nom::error::Error<&str>> {
+fn field(x: &str) -> IResult<&str, Field, nom::error::Error<&str>> {
     nom::combinator::map(root_specifier_list, |specifiers| Field { specifiers })(x)
 }
 
@@ -374,7 +353,7 @@ named!(
 );
 
 // TODO: map_res: complete
-fn longhand<'a>(x: &'a str) -> IResult<&'a str, ScheduleFields, nom::error::Error<&'a str>> {
+fn longhand(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
     let (input, seconds) = field(x)?;
     let (input, minutes) = field(input)?;
     let (input, hours) = field(input)?;
