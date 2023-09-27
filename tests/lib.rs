@@ -44,7 +44,7 @@ mod tests {
     fn test_parse_with_lists() {
         let expression = "1 2,17,51 1-3,6,9-11 4,29 2,3,7 Tues";
         let schedule = Schedule::from_str(expression).unwrap();
-        let mut date = Utc::now().timestamp_nanos() as u64;
+        let mut date = Utc::now().timestamp_nanos_opt().unwrap() as u64;
         println!("Fire times for {}:", expression);
         for _ in 0..20 {
             date = schedule.after(&date).next().expect("No further dates!");
@@ -98,24 +98,28 @@ mod tests {
         let starting_date = Utc
             .with_ymd_and_hms(2017, 6, 15, 14, 29, 36)
             .unwrap()
-            .timestamp_nanos() as u64;
+            .timestamp_nanos_opt()
+            .unwrap() as u64;
         let mut events = schedule.after(&starting_date);
         assert_eq!(
             Utc.with_ymd_and_hms(2018, 1, 1, 0, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2019, 1, 1, 0, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
     }
@@ -127,24 +131,28 @@ mod tests {
         let starting_date = Utc
             .with_ymd_and_hms(2017, 10, 15, 14, 29, 36)
             .unwrap()
-            .timestamp_nanos() as u64;
+            .timestamp_nanos_opt()
+            .unwrap() as u64;
         let mut events = schedule.after(&starting_date);
         assert_eq!(
             Utc.with_ymd_and_hms(2017, 11, 1, 0, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2017, 12, 1, 0, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2018, 1, 1, 0, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
     }
@@ -156,24 +164,28 @@ mod tests {
         let starting_date = Utc
             .with_ymd_and_hms(2016, 12, 23, 14, 29, 36)
             .unwrap()
-            .timestamp_nanos() as u64;
+            .timestamp_nanos_opt()
+            .unwrap() as u64;
         let mut events = schedule.after(&starting_date);
         assert_eq!(
             Utc.with_ymd_and_hms(2016, 12, 25, 0, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2017, 1, 1, 0, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2017, 1, 8, 0, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
     }
@@ -185,24 +197,28 @@ mod tests {
         let starting_date = Utc
             .with_ymd_and_hms(2016, 12, 29, 14, 29, 36)
             .unwrap()
-            .timestamp_nanos() as u64;
+            .timestamp_nanos_opt()
+            .unwrap() as u64;
         let mut events = schedule.after(&starting_date);
         assert_eq!(
             Utc.with_ymd_and_hms(2016, 12, 30, 0, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2016, 12, 31, 0, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2017, 1, 1, 0, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
     }
@@ -214,24 +230,28 @@ mod tests {
         let starting_date = Utc
             .with_ymd_and_hms(2017, 2, 25, 22, 29, 36)
             .unwrap()
-            .timestamp_nanos() as u64;
+            .timestamp_nanos_opt()
+            .unwrap() as u64;
         let mut events = schedule.after(&starting_date);
         assert_eq!(
             Utc.with_ymd_and_hms(2017, 2, 25, 23, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2017, 2, 26, 0, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2017, 2, 26, 1, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
     }
@@ -243,63 +263,73 @@ mod tests {
         let starting_date = Utc
             .with_ymd_and_hms(2017, 6, 15, 14, 29, 36)
             .unwrap()
-            .timestamp_nanos() as u64;
+            .timestamp_nanos_opt()
+            .unwrap() as u64;
         let mut events = schedule.after(&starting_date);
 
         assert_eq!(
             Utc.with_ymd_and_hms(2018, 1, 1, 0, 0, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2018, 1, 1, 0, 0, 20)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2018, 1, 1, 0, 0, 40)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
 
         assert_eq!(
             Utc.with_ymd_and_hms(2018, 1, 1, 0, 5, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2018, 1, 1, 0, 5, 20)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2018, 1, 1, 0, 5, 40)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
 
         assert_eq!(
             Utc.with_ymd_and_hms(2018, 1, 1, 0, 10, 0)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2018, 1, 1, 0, 10, 20)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
         assert_eq!(
             Utc.with_ymd_and_hms(2018, 1, 1, 0, 10, 40)
                 .unwrap()
-                .timestamp_nanos() as u64,
+                .timestamp_nanos_opt()
+                .unwrap() as u64,
             events.next().unwrap()
         );
     }
@@ -310,8 +340,8 @@ mod tests {
         let schedule = Schedule::from_str(expression).expect("Failed to parse expression.");
 
         // Membership
-        assert_eq!(true, schedule.years().includes(2031));
-        assert_eq!(false, schedule.years().includes(1969));
+        assert!(schedule.years().includes(2031));
+        assert!(!schedule.years().includes(1969));
 
         // Number of years specified
         assert_eq!(30, schedule.years().count());
@@ -338,8 +368,8 @@ mod tests {
         let schedule = Schedule::from_str(expression).expect("Failed to parse expression.");
 
         // Membership
-        assert_eq!(false, schedule.months().includes(4));
-        assert_eq!(true, schedule.months().includes(6));
+        assert!(!schedule.months().includes(4));
+        assert!(schedule.months().includes(6));
 
         // Iterator
         let mut summer = schedule.months().iter();
@@ -364,8 +394,8 @@ mod tests {
         let expression = "* * * 1,15 * * *";
         let schedule = Schedule::from_str(expression).expect("Failed to parse expression.");
         // Membership
-        assert_eq!(true, schedule.days_of_month().includes(1));
-        assert_eq!(false, schedule.days_of_month().includes(7));
+        assert!(schedule.days_of_month().includes(1));
+        assert!(!schedule.days_of_month().includes(7));
 
         // Iterator
         let mut paydays = schedule.days_of_month().iter();
@@ -389,17 +419,19 @@ mod tests {
             .unwrap()
             .and_hms_opt(0, 0, 59)
             .unwrap()
-            .timestamp_nanos() as u64;
+            .timestamp_nanos_opt()
+            .unwrap() as u64;
         let start_time_1 = &start_time_1;
-        let next_time_1 = schedule.after(&start_time_1).next().unwrap();
+        let next_time_1 = schedule.after(start_time_1).next().unwrap();
 
         let start_time_2 = NaiveDate::from_ymd_opt(2017, 10, 24)
             .unwrap()
             .and_hms_opt(0, 1, 0)
             .unwrap()
-            .timestamp_nanos() as u64;
+            .timestamp_nanos_opt()
+            .unwrap() as u64;
         let start_time_2 = &start_time_2;
-        let next_time_2 = schedule.after(&start_time_2).next().unwrap();
+        let next_time_2 = schedule.after(start_time_2).next().unwrap();
         assert_eq!(next_time_1, next_time_2);
     }
 
@@ -410,12 +442,13 @@ mod tests {
             .unwrap()
             .and_hms_opt(22, 30, 00)
             .unwrap()
-            .timestamp_nanos() as u64;
+            .timestamp_nanos_opt()
+            .unwrap() as u64;
         let start_time = &start_time;
-        let next_time_1 = schedule_1.after(&start_time).next().unwrap();
+        let next_time_1 = schedule_1.after(start_time).next().unwrap();
 
         let schedule_2 = "00 00 * * * * *".parse::<Schedule>().unwrap();
-        let next_time_2 = schedule_2.after(&start_time).next().unwrap();
+        let next_time_2 = schedule_2.after(start_time).next().unwrap();
         assert_eq!(next_time_1, next_time_2);
     }
 
