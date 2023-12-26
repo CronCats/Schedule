@@ -211,6 +211,7 @@ fn field_with_any(x: &str) -> IResult<&str, Field, nom::error::Error<&str>> {
     })(x)
 }
 
+// 0 0 0 1 1 * *
 fn shorthand_yearly(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
     map(tag("@yearly"), |_tag| {
         ScheduleFields::new(
@@ -225,6 +226,7 @@ fn shorthand_yearly(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<
     })(x)
 }
 
+// 0 0 0 1 * * *
 fn shorthand_monthly(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
     map(tag("@monthly"), |_tag| {
         ScheduleFields::new(
@@ -239,6 +241,7 @@ fn shorthand_monthly(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error
     })(x)
 }
 
+// 0 0 0 * * 1 *
 fn shorthand_weekly(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
     map(tag("@weekly"), |_tag| {
         ScheduleFields::new(
@@ -253,6 +256,7 @@ fn shorthand_weekly(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<
     })(x)
 }
 
+// 0 0 0 * * * *
 fn shorthand_daily(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
     map(tag("@daily"), |_tag| {
         ScheduleFields::new(
@@ -267,6 +271,7 @@ fn shorthand_daily(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&
     })(x)
 }
 
+// 0 0 * * * * *
 fn shorthand_hourly(x: &str) -> IResult<&str, ScheduleFields, nom::error::Error<&str>> {
     map(tag("@hourly"), |_tag| {
         ScheduleFields::new(

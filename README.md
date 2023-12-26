@@ -1,5 +1,5 @@
 # cron_schedule
-A cron expression parser, adapted for blockchain environments..
+A cron expression parser, adapted for blockchain environments.
 
 ```rust
 extern crate cron_schedule;
@@ -33,6 +33,14 @@ Upcoming fire times:
 -> 2021-08-15 09:30:00 UTC
 */
 ```
+
+## Shorthand Support
+This cron expression parser also supports shorthand notations for time intervals:
+- `@yearly` (equivalent to `0 0 0 1 1 * *`)
+- `@monthly` (equivalent to `0 0 0 1 * * *`)
+- `@weekly` (equivalent to `0 0 0 * * 1 *`)
+- `@daily` (equivalent to `0 0 0 * * * *`)
+- `@hourly` (equivalent to `0 0 * * * * *`)
 
 ## License
 
